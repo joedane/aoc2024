@@ -1,0 +1,4 @@
+/target
+input/*:Zone.Identifier
+Cargo.lock
+.vscode/launch.json
