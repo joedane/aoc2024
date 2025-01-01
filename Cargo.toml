@@ -6,10 +6,9 @@ edition = "2021"
 [dependencies]
 regex = "1.11.1"
 
-
-[[bin]]
-name = "d1"
-path = "src/d1.rs"
+[lib]
+name = "utils"
+path = "src/utils.rs"
 
 [[bin]]
 name = "d2"
@@ -22,3 +21,8 @@ path = "src/d3.rs"
 [[bin]]
 name = "d4"
 path = "src/d4.rs"
+
+[[bin]]
+name = "d5"
+path = "src/d5.rs"
+
