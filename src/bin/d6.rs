@@ -108,19 +108,22 @@ impl From<u8> for CellState {
     }
 }
 
-fn would_loop_if_turn(grid: &BasicGrid<CellState>, step: usize, pos: Coord, dir: Dir) -> bool {
-    let turn_dir = dir.turn_right();
-    match grid.at(pos) {
-        CellState::Obstructed => false,
-        CellState::Open(visits) => {
-            for v in visits {
-                if v.dir == turn_dir {
-                    return v.step < step;
-                }
-            }
-            false
+fn would_loop_if_turn(grid: &BasicGrid<CellState>, mut pos: Coord, dir: Dir) -> bool {
+    let mut seen: HashSet<(Coord, Dir)> = Default::default();
+    seen.insert((pos, dir));
+    let mut dir = dir.turn_right();
+    while let Some(next_pos) = grid.next_pos(pos, dir) {
+        if matches!(grid[next_pos], CellState::Obstructed) {
+            dir = dir.turn_right();
+            continue;
         }
+        if seen.contains(&(next_pos, dir)) {
+            return true;
+        }
+        seen.insert((pos, dir));
+        pos = next_pos;
     }
+    return false;
 }
 
 fn part2(data: &str) {
@@ -138,49 +141,25 @@ fn part2(data: &str) {
     let orig_pos = pos;
     let mut dir = Dir::Up;
     let mut loops: i32 = 0;
-    let mut step: usize = 1;
 
-    while let Some(next_pos) = grid.next_pos(pos, dir) {
-        println!("part 1 (4,4) is {:?}", grid[Coord::new(4, 4)]);
-        let v = &mut grid[next_pos];
-        if matches!(*v, CellState::Obstructed) {
-            grid[pos].visit(step, dir);
-            dir = dir.turn_right();
-            step += 1;
-            grid[pos].visit(step, dir);
-            continue;
-        }
-        grid[pos].visit(step, dir);
-        step += 1;
-        println!("grid at {:?} is now {:?}", pos, grid[pos]);
-        pos = next_pos;
-    }
-
-    grid.display_all();
-
-    pos = orig_pos;
-    dir = Dir::Up;
-    step = 1;
     while let Some(next_pos) = grid.next_pos(pos, dir) {
         let v = &grid[next_pos];
         if matches!(*v, CellState::Obstructed) {
             dir = dir.turn_right();
-            step += 1;
             continue;
-        } else if would_loop_if_turn(&grid, step, pos, dir) {
+        } else if would_loop_if_turn(&grid, pos, dir) {
+            println!("loop at {:?}", pos);
             loops += 1;
-            println!("turn at {:?}", pos);
         }
-        step += 1;
         pos = next_pos;
     }
 
     println!("{} loops", loops);
 }
 fn main() {
-    // let data = std::fs::read_to_string("input/d6.txt").unwrap();
-    let data = TEST;
-    part2(data);
+    let data = std::fs::read_to_string("input/d6.txt").unwrap();
+    //let data = TEST;
+    part2(&data);
 }
 
 static TEST: &str = "....#.....
