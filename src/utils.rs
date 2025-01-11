@@ -1,5 +1,5 @@
 use std::{
-    fmt::Display,
+    fmt::{Debug, Display},
     io::{BufReader, Read},
 };
 
@@ -7,7 +7,7 @@ pub fn input<T: Read>(r: T) -> std::io::BufReader<T> {
     BufReader::new(r)
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct AsciiByte(u8);
 
 impl Display for AsciiByte {
@@ -28,7 +28,7 @@ pub struct Coord {
 }
 
 impl Coord {
-    fn new(row: usize, col: usize) -> Self {
+    pub fn new(row: usize, col: usize) -> Self {
         Self { row, col }
     }
 }
@@ -92,6 +92,22 @@ where
 }
 
 impl<T> BasicGrid<T> {
+    pub fn find_with<F>(&self, pred: F) -> Option<Coord>
+    where
+        F: Fn(&T) -> bool,
+    {
+        self.data
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, v)| {
+                if pred(v) {
+                    Some(self.idx_to_pos(idx))
+                } else {
+                    None
+                }
+            })
+            .nth(0)
+    }
     fn idx_to_pos(&self, i: usize) -> Coord {
         Coord::new(i / self.width, i % self.width)
     }
@@ -131,11 +147,15 @@ impl<T> BasicGrid<T> {
     fn idx_for(&self, row: usize, col: usize) -> usize {
         self.width * row + col
     }
+
+    pub fn at(&self, pos: Coord) -> &T {
+        &self.data[self.pos_to_idx(pos)]
+    }
 }
 
 impl<T> BasicGrid<T>
 where
-    T: From<u8> + PartialEq,
+    T: PartialEq + std::fmt::Debug,
 {
     pub fn find(&self, val: T) -> Option<Coord> {
         self.data

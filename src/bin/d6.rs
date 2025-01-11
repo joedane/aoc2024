@@ -1,8 +1,8 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, fmt::Display};
 
 use utils::*;
 
-fn part1(data: &str) {
+fn _part1(data: &str) {
     let mut input: Vec<&str> = vec![];
     for line in data.lines().map(str::trim) {
         input.push(line);
@@ -26,124 +26,156 @@ fn part1(data: &str) {
     println!("visited {} spaces", visited.len());
 }
 
-fn would_loop_here(grid: &BasicGrid<CellState>, mut pos: Coord, mut dir: Dir) -> bool {
-    dir = dir.turn_right();
-    let orig_pos = pos;
-    let mut turns_left: u8 = 3;
-    'leg: while turns_left > 0 {
-        while let Some(next_pos) = grid.next_pos(pos, dir) {
-            let v = grid[next_pos];
-            if v == b'#'.into() {
-                dir = dir.turn_right();
-                turns_left -= 1;
-                continue 'leg;
-            }
-            pos = next_pos;
-        }
-        return false;
-    }
-    pos == orig_pos
+#[derive(Debug)]
+struct VisitState {
+    step: usize,
+    dir: Dir,
 }
-
-#[derive(Clone, Copy, PartialEq)]
-struct VisitState(u8);
 
 impl VisitState {
-    fn new(dir: Dir) -> Self {
-        let mut v = VisitState(0);
-        v.visit(dir);
-        v
+    fn new(step: usize, dir: Dir) -> Self {
+        Self { step, dir }
     }
 
-    fn empty() -> Self {
-        VisitState(0)
-    }
     fn visited(&self, dir: Dir) -> bool {
-        let flag: u8 = match dir {
-            Dir::Up => 1,
-            Dir::Down => 1 << 1,
-            Dir::Left => 1 << 2,
-            Dir::Right => 1 << 3,
-        };
-        self.0 & flag != 0
-    }
-
-    fn visit(&mut self, dir: Dir) {
-        let flag: u8 = match dir {
-            Dir::Up => 1,
-            Dir::Down => 1 << 1,
-            Dir::Left => 1 << 2,
-            Dir::Right => 1 << 3,
-        };
-        self.0 = self.0 & flag;
+        self.dir == dir
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug)]
 enum CellState {
     Obstructed,
-    Open(VisitState),
+    Open(Vec<VisitState>),
 }
 
 impl CellState {
-    fn visit(&mut self, dir: Dir) {
+    fn visit(&mut self, step: usize, dir: Dir) {
         match self {
             CellState::Obstructed => panic!(),
-            CellState::Open(mut visit_state) => {
-                visit_state.visit(dir);
+            CellState::Open(ref mut visit_state) => visit_state.push(VisitState::new(step, dir)),
+        }
+    }
+
+    fn visited(&self, dir: Dir) -> Option<usize> {
+        match self {
+            CellState::Obstructed => None,
+            CellState::Open(visits) => visits
+                .iter()
+                .filter_map(|vs| if vs.dir == dir { Some(vs.step) } else { None })
+                .nth(0),
+        }
+    }
+}
+
+impl Display for CellState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CellState::Obstructed => write!(f, "#"),
+            CellState::Open(visit_state) => {
+                if self.visited(Dir::Up).or(self.visited(Dir::Down)).is_some() {
+                    if self
+                        .visited(Dir::Left)
+                        .or(self.visited(Dir::Right))
+                        .is_some()
+                    {
+                        write!(f, "+")
+                    } else {
+                        write!(f, "|")
+                    }
+                } else if self
+                    .visited(Dir::Left)
+                    .or(self.visited(Dir::Right))
+                    .is_some()
+                {
+                    write!(f, "-")
+                } else {
+                    write!(f, ".")
+                }
             }
         }
     }
 }
+
 impl From<u8> for CellState {
     fn from(value: u8) -> Self {
         if value == b'#' {
             CellState::Obstructed
         } else if value == b'^' {
-            CellState::Open(VisitState::new(Dir::Up))
+            CellState::Open(vec![VisitState::new(1, Dir::Up)])
         } else {
-            CellState::Open(VisitState::empty())
+            CellState::Open(vec![])
         }
     }
 }
+
+fn would_loop_if_turn(grid: &BasicGrid<CellState>, step: usize, pos: Coord, dir: Dir) -> bool {
+    let turn_dir = dir.turn_right();
+    match grid.at(pos) {
+        CellState::Obstructed => false,
+        CellState::Open(visits) => {
+            for v in visits {
+                if v.dir == turn_dir {
+                    return v.step < step;
+                }
+            }
+            false
+        }
+    }
+}
+
 fn part2(data: &str) {
     let mut input: Vec<&str> = vec![];
     for line in data.lines().map(str::trim) {
         input.push(line);
     }
-    let grid: utils::BasicGrid<CellState> = utils::BasicGrid::new(&input);
+    let mut grid: utils::BasicGrid<CellState> = utils::BasicGrid::new(&input);
     let mut pos = grid
-        .find(CellState::Open(VisitState::new(Dir::Up)))
+        .find_with(|v| match v {
+            CellState::Obstructed => false,
+            CellState::Open(vec) => vec.len() > 0,
+        })
         .unwrap();
     let orig_pos = pos;
     let mut dir = Dir::Up;
     let mut loops: i32 = 0;
+    let mut step: usize = 1;
 
     while let Some(next_pos) = grid.next_pos(pos, dir) {
-        let v = grid[next_pos];
-        if v == CellState::Obstructed {
+        println!("part 1 (4,4) is {:?}", grid[Coord::new(4, 4)]);
+        let v = &mut grid[next_pos];
+        if matches!(*v, CellState::Obstructed) {
+            grid[pos].visit(step, dir);
             dir = dir.turn_right();
-            v.visit(dir);
+            step += 1;
+            grid[pos].visit(step, dir);
             continue;
         }
+        grid[pos].visit(step, dir);
+        step += 1;
+        println!("grid at {:?} is now {:?}", pos, grid[pos]);
         pos = next_pos;
     }
+
+    grid.display_all();
 
     pos = orig_pos;
     dir = Dir::Up;
+    step = 1;
     while let Some(next_pos) = grid.next_pos(pos, dir) {
-        let v = grid[next_pos];
-        if v == CellState::Obstructed {
+        let v = &grid[next_pos];
+        if matches!(*v, CellState::Obstructed) {
             dir = dir.turn_right();
+            step += 1;
             continue;
-        
-        if would_loop_here(&grid, pos, dir) {
+        } else if would_loop_if_turn(&grid, step, pos, dir) {
             loops += 1;
+            println!("turn at {:?}", pos);
         }
+        step += 1;
         pos = next_pos;
     }
 
-    println!("{}", loops);
+    println!("{} loops", loops);
 }
 fn main() {
     // let data = std::fs::read_to_string("input/d6.txt").unwrap();
