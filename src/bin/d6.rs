@@ -26,7 +26,7 @@ fn _part1(data: &str) {
     println!("visited {} spaces", visited.len());
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct VisitState {
     step: usize,
     dir: Dir,
@@ -42,8 +42,9 @@ impl VisitState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum CellState {
+    Start(Vec<VisitState>),
     Obstructed,
     Open(Vec<VisitState>),
 }
@@ -52,14 +53,16 @@ impl CellState {
     fn visit(&mut self, step: usize, dir: Dir) {
         match self {
             CellState::Obstructed => panic!(),
-            CellState::Open(ref mut visit_state) => visit_state.push(VisitState::new(step, dir)),
+            CellState::Open(ref mut visit_state) | CellState::Start(ref mut visit_state) => {
+                visit_state.push(VisitState::new(step, dir))
+            }
         }
     }
 
     fn visited(&self, dir: Dir) -> Option<usize> {
         match self {
             CellState::Obstructed => None,
-            CellState::Open(visits) => visits
+            CellState::Open(visits) | CellState::Start(visits) => visits
                 .iter()
                 .filter_map(|vs| if vs.dir == dir { Some(vs.step) } else { None })
                 .nth(0),
@@ -71,7 +74,7 @@ impl Display for CellState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CellState::Obstructed => write!(f, "#"),
-            CellState::Open(visit_state) => {
+            CellState::Open(_) | CellState::Start(_) => {
                 if self.visited(Dir::Up).or(self.visited(Dir::Down)).is_some() {
                     if self
                         .visited(Dir::Left)
@@ -101,27 +104,37 @@ impl From<u8> for CellState {
         if value == b'#' {
             CellState::Obstructed
         } else if value == b'^' {
-            CellState::Open(vec![VisitState::new(1, Dir::Up)])
+            CellState::Start(vec![])
         } else {
             CellState::Open(vec![])
         }
     }
 }
 
-fn would_loop_if_turn(grid: &BasicGrid<CellState>, mut pos: Coord, dir: Dir) -> bool {
+fn would_loop_if_turn(
+    grid: &BasicGrid<CellState>,
+    mut pos: Coord,
+    next_pos: Coord,
+    dir: Dir,
+    mut step: usize,
+) -> bool {
+    let mut loop_grid = (*grid).clone();
+    loop_grid[next_pos] = CellState::Obstructed;
     let mut seen: HashSet<(Coord, Dir)> = Default::default();
     seen.insert((pos, dir));
     let mut dir = dir.turn_right();
-    while let Some(next_pos) = grid.next_pos(pos, dir) {
-        if matches!(grid[next_pos], CellState::Obstructed) {
+    while let Some(next_pos) = loop_grid.next_pos(pos, dir) {
+        if matches!(loop_grid[next_pos], CellState::Obstructed) {
             dir = dir.turn_right();
             continue;
         }
         if seen.contains(&(next_pos, dir)) {
             return true;
         }
-        seen.insert((pos, dir));
+        seen.insert((next_pos, dir));
+        loop_grid[next_pos].visit(step, dir);
         pos = next_pos;
+        step += 1;
     }
     return false;
 }
@@ -132,29 +145,33 @@ fn part2(data: &str) {
         input.push(line);
     }
     let mut grid: utils::BasicGrid<CellState> = utils::BasicGrid::new(&input);
-    let mut pos = grid
-        .find_with(|v| match v {
-            CellState::Obstructed => false,
-            CellState::Open(vec) => vec.len() > 0,
-        })
-        .unwrap();
-    let orig_pos = pos;
+    let start_candidates = grid.find_with(|v| match v {
+        CellState::Start(_) => true,
+        _ => false,
+    });
+    assert!(start_candidates.len() == 1);
+    let mut pos = start_candidates[0];
     let mut dir = Dir::Up;
-    let mut loops: i32 = 0;
-
+    let mut steps: usize = 0;
+    let mut loop_pos: HashSet<Coord> = Default::default();
+    let mut seen: HashSet<Coord> = Default::default();
+    seen.insert(pos);
     while let Some(next_pos) = grid.next_pos(pos, dir) {
-        let v = &grid[next_pos];
-        if matches!(*v, CellState::Obstructed) {
+        if matches!(grid[next_pos], CellState::Obstructed) {
             dir = dir.turn_right();
             continue;
-        } else if would_loop_if_turn(&grid, pos, dir) {
-            println!("loop at {:?}", pos);
-            loops += 1;
+        } else if !seen.contains(&next_pos) && would_loop_if_turn(&grid, pos, next_pos, dir, steps)
+        {
+            println!("loop at {:?}", next_pos);
+            loop_pos.insert(next_pos);
         }
+        grid[next_pos].visit(steps, dir);
+        seen.insert(next_pos);
         pos = next_pos;
+        steps += 1;
     }
 
-    println!("{} loops", loops);
+    println!("{} loops", loop_pos.len());
 }
 fn main() {
     let data = std::fs::read_to_string("input/d6.txt").unwrap();

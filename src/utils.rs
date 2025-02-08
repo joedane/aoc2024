@@ -67,6 +67,19 @@ pub struct BasicGrid<T> {
     height: usize,
 }
 
+impl<T> Clone for BasicGrid<T>
+where
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            data: self.data.clone(),
+            width: self.width.clone(),
+            height: self.height.clone(),
+        }
+    }
+}
+
 impl<T> BasicGrid<T>
 where
     T: From<u8>,
@@ -92,7 +105,7 @@ where
 }
 
 impl<T> BasicGrid<T> {
-    pub fn find_with<F>(&self, pred: F) -> Option<Coord>
+    pub fn find_with<F>(&self, pred: F) -> Vec<Coord>
     where
         F: Fn(&T) -> bool,
     {
@@ -106,7 +119,7 @@ impl<T> BasicGrid<T> {
                     None
                 }
             })
-            .nth(0)
+            .collect()
     }
     fn idx_to_pos(&self, i: usize) -> Coord {
         Coord::new(i / self.width, i % self.width)
