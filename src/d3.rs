@@ -1,3 +1,6 @@
+use pest::Parser;
+use pest_derive::Parser;
+
 #[derive(Debug)]
 struct Mul {
     op1: u32,
@@ -31,26 +34,58 @@ fn parse_args(s: &[u8]) -> Option<(u32, u32, usize)> {
     }
     None
 }
-fn parse_line(line: &str) -> Vec<Mul> {
-    let mut v: Vec<Mul> = vec![];
-    let mut start = 0;
-    let bytes = line.as_bytes();
-    while let Some(i) = line[start..].find("mul(") {
-        if let Some((op1, op2, next)) = parse_args(&bytes[start + i + 4..]) {
-            v.push(Mul::new(op1, op2));
-            start = start + i + 4 + next;
-        } else {
-            start = start + i + 4;
+
+struct P1;
+
+impl P1 {
+    fn parse_line(line: &str) -> Vec<Mul> {
+        let mut v: Vec<Mul> = vec![];
+        let mut start = 0;
+        let bytes = line.as_bytes();
+        while let Some(i) = line[start..].find("mul(") {
+            if let Some((op1, op2, next)) = parse_args(&bytes[start + i + 4..]) {
+                v.push(Mul::new(op1, op2));
+                start = start + i + 4 + next;
+            } else {
+                start = start + i + 4;
+            }
         }
+        v
     }
-    v
 }
 
+struct P2;
+
+#[derive(Parser)]
+#[grammar_inline = r#"
+    num = @{ ASCII_DIGIT+ }
+    mul = { "mul" ~ "(" ~ num ~ "," ~ num ~ ")" }
+    out_blk = { "don't" ~ ASCII ~ "do"}
+    
+    file = { (out_blk | mul)* }
+    
+    WHITESPACE = _{" " | "\t" | "\n" }
+
+    "#]
+struct Part2Parser;
+
+impl P2 {
+    fn parse_line(line: &str) -> Vec<Mul> {
+        let mut v: Vec<Mul> = vec![];
+        let vv = Part2Parser::parse(Rule::file, line)
+            .unwrap()
+            .next()
+            .unwrap();
+        println!("{:?}", vv);
+        v
+    }
+}
 pub fn main() {
     //let v = parse_line(TEST);
-    let v = parse_line(&std::fs::read_to_string("input/d3.txt").unwrap());
-    let r: u32 = v.iter().map(|m| m.op1 * m.op2).sum();
-    println!("{}", r);
+    //let v = P1::parse_line(&std::fs::read_to_string("input/d3.txt").unwrap());
+    //let r: u32 = v.iter().map(|m| m.op1 * m.op2).sum();
+    P2::parse_line(TEST);
+    println!("{}", "asdfasfd");
 }
 
 static TEST: &str = "xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))";
