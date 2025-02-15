@@ -1,5 +1,6 @@
-use std::{collections::HashSet, fmt::Display};
+#![allow(dead_code)]
 
+use std::{collections::HashSet, fmt::Display};
 use utils::*;
 
 fn _part1(data: &str) {

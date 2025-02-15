@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::{
     fmt::{Debug, Display},
     io::{BufReader, Read},
@@ -183,11 +185,11 @@ where
     T: Copy,
 {
     fn get_up(&self, i: usize, cnt: usize) -> Option<T> {
-        let (row, col) = (i / self.width, i % self.width);
+        let (row, _) = (i / self.width, i % self.width);
         (row > (cnt - 1)).then(|| self.data[i - self.width * cnt])
     }
     fn get_down(&self, i: usize, cnt: usize) -> Option<T> {
-        let (row, col) = (i / self.width, i % self.width);
+        let (row, _) = (i / self.width, i % self.width);
         (row + cnt < self.height).then(|| self.data[i + self.width * cnt])
     }
 
@@ -253,5 +255,41 @@ impl<T> std::ops::Index<Coord> for BasicGrid<T> {
 impl<T> std::ops::IndexMut<Coord> for BasicGrid<T> {
     fn index_mut(&mut self, index: Coord) -> &mut Self::Output {
         &mut self.data[self.idx_for(index.row, index.col)]
+    }
+}
+
+pub struct GridIterator<'a, T> {
+    grid: &'a BasicGrid<T>,
+    at_row: usize,
+    at_col: usize,
+}
+
+impl<'a, T> Iterator for GridIterator<'a, T> {
+    type Item = Coord;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.at_col == self.grid.width {
+            if self.at_row == self.grid.height - 1 {
+                return None;
+            } else {
+                let c = Coord::new(self.at_row, self.at_col);
+                self.at_row += 1;
+                self.at_col = 0;
+                return Some(c);
+            }
+        } else {
+            let c = Coord::new(self.at_row, self.at_col);
+            self.at_col += 1;
+            return Some(c);
+        }
+    }
+}
+impl<T> BasicGrid<T> {
+    pub fn row_major_iter(&self) -> GridIterator<T> {
+        GridIterator {
+            grid: self,
+            at_row: 0,
+            at_col: 0,
+        }
     }
 }

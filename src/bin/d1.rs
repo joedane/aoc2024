@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use regex::Regex;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Lines, Read};
