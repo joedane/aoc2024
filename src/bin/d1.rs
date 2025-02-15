@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use regex::Regex;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Lines, Read};
@@ -8,7 +10,7 @@ struct D1 {
 }
 
 impl D1 {
-    fn part1(mut self) -> String {
+    fn _part1(mut self) -> String {
         self.l1.sort();
         self.l2.sort();
 
@@ -23,7 +25,7 @@ impl D1 {
         format!("{}", ans)
     }
 
-    fn part2(mut self) -> String {
+    fn part2(self) -> String {
         let mut counts: HashMap<u32, usize> = Default::default();
         for s in self.l2.iter() {
             *counts.entry(*s).or_insert(0) += 1;

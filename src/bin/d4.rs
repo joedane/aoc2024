@@ -1,0 +1,231 @@
+struct Part1;
+
+impl Part1 {
+    fn matches_right(grid: &Grid, i: usize) -> bool {
+        let (_, start_col) = (i / grid.width, i % grid.width);
+        if start_col + 3 < grid.width
+            && grid.data[i] == b'X'
+            && grid.data[i + 1] == b'M'
+            && grid.data[i + 2] == b'A'
+            && grid.data[i + 3] == b'S'
+        {
+            true
+        } else {
+            false
+        }
+    }
+
+    fn matches_left(grid: &Grid, i: usize) -> bool {
+        let (_, start_col) = (i / grid.width, i % grid.width);
+        if start_col > 2
+            && grid.data[i] == b'X'
+            && grid.data[i - 1] == b'M'
+            && grid.data[i - 2] == b'A'
+            && grid.data[i - 3] == b'S'
+        {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    fn matches_up(grid: &Grid, i: usize) -> bool {
+        grid.data[i] == b'X' && grid.up(i, 3, b'S') && grid.up(i, 2, b'A') && grid.up(i, 1, b'M')
+    }
+
+    fn matches_down(grid: &Grid, i: usize) -> bool {
+        grid.data[i] == b'X'
+            && grid.down(i, 3, b'S')
+            && grid.down(i, 2, b'A')
+            && grid.down(i, 1, b'M')
+    }
+    fn matches_ur(grid: &Grid, i: usize) -> bool {
+        grid.data[i] == b'X' && grid.ur(i, 3, b'S') && grid.ur(i, 2, b'A') && grid.ur(i, 1, b'M')
+    }
+
+    fn matches_ul(grid: &Grid, i: usize) -> bool {
+        grid.data[i] == b'X' && grid.ul(i, 3, b'S') && grid.ul(i, 2, b'A') && grid.ul(i, 1, b'M')
+    }
+
+    fn matches_lr(grid: &Grid, i: usize) -> bool {
+        grid.data[i] == b'X' && grid.lr(i, 3, b'S') && grid.lr(i, 2, b'A') && grid.lr(i, 1, b'M')
+    }
+
+    fn matches_ll(grid: &Grid, i: usize) -> bool {
+        grid.data[i] == b'X' && grid.ll(i, 3, b'S') && grid.ll(i, 2, b'A') && grid.ll(i, 1, b'M')
+    }
+
+    fn count_matches_at(grid: &Grid, i: usize) -> usize {
+        let mut count: usize = 0;
+        if grid.data[i] == b'X' {
+            if Part1::matches_right(grid, i) {
+                count += 1;
+            }
+            if Part1::matches_left(grid, i) {
+                count += 1;
+            }
+            if Part1::matches_up(grid, i) {
+                count += 1;
+            }
+            if Part1::matches_down(grid, i) {
+                count += 1;
+            }
+            if Part1::matches_ur(grid, i) {
+                count += 1;
+            }
+            if Part1::matches_ul(grid, i) {
+                count += 1;
+            }
+            if Part1::matches_lr(grid, i) {
+                count += 1;
+            }
+            if Part1::matches_ll(grid, i) {
+                count += 1;
+            }
+        }
+        count
+    }
+
+    fn count_matches(grid: &Grid) -> usize {
+        (0..grid.data.len())
+            .map(|i| Part1::count_matches_at(grid, i))
+            .sum()
+    }
+}
+
+struct Part2;
+
+impl Part2 {
+    fn count_matches_at(grid: &Grid, i: usize) -> usize {
+        let mut count = 0;
+        if grid.data[i] == b'A' {
+            if (grid.ur(i, 1, b'S') || grid.ur(i, 1, b'M'))
+                && (grid.ul(i, 1, b'S') || grid.ul(i, 1, b'M'))
+                && (grid.ll(i, 1, b'S') || grid.ll(i, 1, b'M'))
+                && (grid.lr(i, 1, b'S') || grid.lr(i, 1, b'M'))
+            {
+                if grid
+                    .ll_idx(i, 1)
+                    .and_then(|ll_idx| match grid.ur_idx(i, 1) {
+                        None => None,
+                        Some(ur_idx) => {
+                            if grid.data[ll_idx] != grid.data[ur_idx] {
+                                Some(true)
+                            } else {
+                                None
+                            }
+                        }
+                    })
+                    .and(grid.lr_idx(i, 1).and_then(|lr_idx| {
+                        grid.ul_idx(i, 1)
+                            .map(|ul_idx| grid.data[lr_idx] != grid.data[ul_idx])
+                    }))
+                    .unwrap_or(false)
+                {
+                    count += 1;
+                }
+            }
+        }
+        count
+    }
+    fn count_matches(grid: &Grid) -> usize {
+        (0..grid.data.len())
+            .map(|i| Part2::count_matches_at(grid, i))
+            .sum()
+    }
+}
+pub fn main() {
+    let mut lines = vec![];
+    let data = std::fs::read_to_string("input/d4.txt").unwrap();
+    //let data = TEST;
+    for l in data.lines() {
+        lines.push(l.trim());
+    }
+    let grid = Grid::new(&lines);
+    println!("width: {}, height: {}", grid.width, grid.height);
+    println!("{}", Part2::count_matches(&grid));
+}
+
+static TEST: &str = "MMMSXXMASM
+MSAMXMSMSA
+AMXSXMAAMM
+MSAMASMSMX
+XMASAMXAMM
+XXAMMXXAMA
+SMSMSASXSS
+SAXAMASAAA
+MAMMMXMMMM
+MXMXAXMASX";
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+
+    #[test]
+    fn test_part1() {
+        let data = "....X
+        ....M
+        ....A
+        ....S";
+        let lines: Vec<&str> = data.lines().map(|s| s.trim()).collect();
+        let grid = Grid::new(&lines);
+        assert_eq!(1, Part1::count_matches(&grid));
+
+        let data = "....S
+        ....A
+        ....M
+        ....X";
+        let lines: Vec<&str> = data.lines().map(|s| s.trim()).collect();
+        let grid = Grid::new(&lines);
+        assert_eq!(1, Part1::count_matches(&grid));
+
+        let data = "X....
+        .M...
+        ..A..
+        ...S.";
+        let lines: Vec<&str> = data.lines().map(|s| s.trim()).collect();
+        let grid = Grid::new(&lines);
+        assert_eq!(1, Part1::count_matches(&grid));
+
+        let data = "...S.
+        ..A..
+        .M...
+        X....";
+        let lines: Vec<&str> = data.lines().map(|s| s.trim()).collect();
+        let grid = Grid::new(&lines);
+        assert_eq!(1, Part1::count_matches(&grid));
+
+        let data = "S....
+        .A...
+        ..M..
+        ...X.";
+        let lines: Vec<&str> = data.lines().map(|s| s.trim()).collect();
+        let grid = Grid::new(&lines);
+        assert_eq!(1, Part1::count_matches(&grid));
+
+        let data = "...S.
+        ..A..
+        .M...
+        X....";
+        let lines: Vec<&str> = data.lines().map(|s| s.trim()).collect();
+        let grid = Grid::new(&lines);
+        assert_eq!(1, Part1::count_matches(&grid));
+
+        let data = ".....
+        .....
+        .XMAS
+        .....";
+        let lines: Vec<&str> = data.lines().map(|s| s.trim()).collect();
+        let grid = Grid::new(&lines);
+        assert_eq!(1, Part1::count_matches(&grid));
+
+        let data = ".....
+        .....
+        .SAMX
+        .....";
+        let lines: Vec<&str> = data.lines().map(|s| s.trim()).collect();
+        let grid = Grid::new(&lines);
+        assert_eq!(1, Part1::count_matches(&grid));
+    }
+}

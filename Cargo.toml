@@ -7,12 +7,15 @@ edition = "2021"
 pest = "2.7.15"
 pest_debugger = "2.7.14"
 pest_derive = "2.7.15"
+eframe = "0.30.0"
+egui = "0.30.0"
+env_logger = "0.11.6"
+itertools = "0.14.0"
 regex = "1.11.1"
 
-
-[[bin]]
-name = "d1"
-path = "src/d1.rs"
+[lib]
+name = "utils"
+path = "src/utils.rs"
 
 [[bin]]
 name = "d2"
@@ -21,3 +24,12 @@ path = "src/d2.rs"
 [[bin]]
 name = "d3"
 path = "src/d3.rs"
+
+[[bin]]
+name = "d4"
+path = "src/d4.rs"
+
+[[bin]]
+name = "d5"
+path = "src/d5.rs"
+
