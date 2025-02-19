@@ -137,7 +137,7 @@ fn would_loop_if_turn(
         pos = next_pos;
         step += 1;
     }
-    return false;
+    false
 }
 
 fn part2(data: &str) {
@@ -146,10 +146,7 @@ fn part2(data: &str) {
         input.push(line);
     }
     let mut grid: utils::BasicGrid<CellState> = utils::BasicGrid::new(&input);
-    let start_candidates = grid.find_with(|v| match v {
-        CellState::Start(_) => true,
-        _ => false,
-    });
+    let start_candidates = grid.find_with(|v| matches!(v, CellState::Start(_)));
     assert!(start_candidates.len() == 1);
     let mut pos = start_candidates[0];
     let mut dir = Dir::Up;

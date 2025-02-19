@@ -9,9 +9,14 @@ pub fn input<T: Read>(r: T) -> std::io::BufReader<T> {
     BufReader::new(r)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct AsciiByte(u8);
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct AsciiByte(pub u8);
 
+impl Debug for AsciiByte {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", std::ascii::escape_default(self.0))
+    }
+}
 impl Display for AsciiByte {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", std::ascii::escape_default(self.0))
@@ -25,8 +30,8 @@ impl From<u8> for AsciiByte {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Coord {
-    row: usize,
-    col: usize,
+    pub row: usize,
+    pub col: usize,
 }
 
 impl Coord {
@@ -65,8 +70,8 @@ impl Dir {
 
 pub struct BasicGrid<T> {
     data: Box<[T]>,
-    width: usize,
-    height: usize,
+    pub width: usize,
+    pub height: usize,
 }
 
 impl<T> Clone for BasicGrid<T>
@@ -76,8 +81,8 @@ where
     fn clone(&self) -> Self {
         Self {
             data: self.data.clone(),
-            width: self.width.clone(),
-            height: self.height.clone(),
+            width: self.width,
+            height: self.height,
         }
     }
 }
@@ -215,11 +220,11 @@ where
     pub fn display_all(&self) {
         for i in 0..self.height {
             for j in 0..self.width {
-                print!("{}", self.data[self.idx_for(i as usize, j as usize)]);
+                print!("{}", self.data[self.idx_for(i, j)]);
             }
-            print!("\n");
+            println!();
         }
-        print!("\n");
+        println!();
     }
 
     pub fn display_at(&self, i: usize, cnt: usize) {
@@ -239,9 +244,9 @@ where
                     print!("{}", self.data[self.idx_for(i as usize, j as usize)]);
                 }
             }
-            print!("\n");
+            println!();
         }
-        print!("\n");
+        println!();
     }
 }
 impl<T> std::ops::Index<Coord> for BasicGrid<T> {
@@ -264,23 +269,23 @@ pub struct GridIterator<'a, T> {
     at_col: usize,
 }
 
-impl<'a, T> Iterator for GridIterator<'a, T> {
+impl<T> Iterator for GridIterator<'_, T> {
     type Item = Coord;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.at_col == self.grid.width {
             if self.at_row == self.grid.height - 1 {
-                return None;
+                None
             } else {
                 let c = Coord::new(self.at_row, self.at_col);
                 self.at_row += 1;
                 self.at_col = 0;
-                return Some(c);
+                Some(c)
             }
         } else {
             let c = Coord::new(self.at_row, self.at_col);
             self.at_col += 1;
-            return Some(c);
+            Some(c)
         }
     }
 }

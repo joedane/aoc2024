@@ -7,7 +7,7 @@ impl App {
     fn new() -> Self {
         Self {
             label: "This is the label".to_string(),
-            value: 3.14159,
+            value: std::f32::consts::PI,
         }
     }
 }
