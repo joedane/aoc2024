@@ -189,27 +189,28 @@ impl<T> BasicGrid<T>
 where
     T: Copy,
 {
-    fn get_up(&self, i: usize, cnt: usize) -> Option<T> {
+    pub fn get_up(&self, i: usize, cnt: usize) -> Option<T> {
         let (row, _) = (i / self.width, i % self.width);
         (row > (cnt - 1)).then(|| self.data[i - self.width * cnt])
     }
-    fn get_down(&self, i: usize, cnt: usize) -> Option<T> {
+    pub fn get_down(&self, i: usize, cnt: usize) -> Option<T> {
         let (row, _) = (i / self.width, i % self.width);
         (row + cnt < self.height).then(|| self.data[i + self.width * cnt])
     }
 
-    fn get_ur(&self, i: usize, cnt: usize) -> Option<T> {
+    pub fn get_ur(&self, i: usize, cnt: usize) -> Option<T> {
         self.ur_idx(i, cnt).map(|idx| self.data[idx])
     }
 
-    fn get_ul(&self, i: usize, cnt: usize) -> Option<T> {
+    pub fn get_ul(&self, i: usize, cnt: usize) -> Option<T> {
         self.ul_idx(i, cnt).map(|idx| self.data[idx])
     }
 
-    fn get_lr(&self, i: usize, cnt: usize) -> Option<T> {
+    pub fn get_lr(&self, i: usize, cnt: usize) -> Option<T> {
         self.lr_idx(i, cnt).map(|idx| self.data[idx])
     }
-    fn get_ll(&self, i: usize, cnt: usize) -> Option<T> {
+
+    pub fn get_ll(&self, i: usize, cnt: usize) -> Option<T> {
         self.ll_idx(i, cnt).map(|idx| self.data[idx])
     }
 }
@@ -247,6 +248,13 @@ where
             println!();
         }
         println!();
+    }
+}
+impl<T> std::ops::Index<usize> for BasicGrid<T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.data[index]
     }
 }
 impl<T> std::ops::Index<Coord> for BasicGrid<T> {

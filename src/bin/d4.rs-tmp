@@ -1,13 +1,17 @@
 struct Part1;
 
+use utils::{AsciiByte, BasicGrid};
+
+type Grid = BasicGrid<AsciiByte>;
+
 impl Part1 {
     fn matches_right(grid: &Grid, i: usize) -> bool {
         let (_, start_col) = (i / grid.width, i % grid.width);
         if start_col + 3 < grid.width
-            && grid.data[i] == b'X'
-            && grid.data[i + 1] == b'M'
-            && grid.data[i + 2] == b'A'
-            && grid.data[i + 3] == b'S'
+            && grid[i] == AsciiByte(b'X')
+            && grid[i + 1] == AsciiByte(b'M')
+            && grid[i + 2] == AsciiByte(b'A')
+            && grid[i + 3] == AsciiByte(b'S')
         {
             true
         } else {
@@ -18,10 +22,10 @@ impl Part1 {
     fn matches_left(grid: &Grid, i: usize) -> bool {
         let (_, start_col) = (i / grid.width, i % grid.width);
         if start_col > 2
-            && grid.data[i] == b'X'
-            && grid.data[i - 1] == b'M'
-            && grid.data[i - 2] == b'A'
-            && grid.data[i - 3] == b'S'
+            && grid[i] == AsciiByte(b'X')
+            && grid[i - 1] == AsciiByte(b'M')
+            && grid[i - 2] == AsciiByte(b'A')
+            && grid[i - 3] == AsciiByte(b'S')
         {
             return true;
         } else {
@@ -30,7 +34,16 @@ impl Part1 {
     }
 
     fn matches_up(grid: &Grid, i: usize) -> bool {
-        grid.data[i] == b'X' && grid.up(i, 3, b'S') && grid.up(i, 2, b'A') && grid.up(i, 1, b'M')
+        grid[i] == AsciiByte(b'X')
+            && grid
+                .get_up(i, 3)
+                .and_then(|c| Some(c == AsciiByte(b'S')))
+                .is_some_and(|v| v)
+            && grid
+                .get_up(i, 2)
+                .and_then(|c| Some(c == AsciiByte(b'A')))
+                .is_some_and(|v| v)
+            && grid.up(i, 1, b'M')
     }
 
     fn matches_down(grid: &Grid, i: usize) -> bool {
@@ -128,7 +141,7 @@ impl Part2 {
         }
         count
     }
-    fn count_matches(grid: &Grid) -> usize {
+    fn count_matches(grid: &BasicGrid) -> usize {
         (0..grid.data.len())
             .map(|i| Part2::count_matches_at(grid, i))
             .sum()
@@ -141,7 +154,7 @@ pub fn main() {
     for l in data.lines() {
         lines.push(l.trim());
     }
-    let grid = Grid::new(&lines);
+    let grid: BasicGrid<AsciiByte> = BasicGrid::new(&lines);
     println!("width: {}, height: {}", grid.width, grid.height);
     println!("{}", Part2::count_matches(&grid));
 }
