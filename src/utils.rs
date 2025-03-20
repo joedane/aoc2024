@@ -189,31 +189,28 @@ impl<T> BasicGrid<T>
 where
     T: Copy,
 {
-    pub fn get_up(&self, i: usize, cnt: usize) -> Option<T> {
+    pub fn get_up(&self, from: Coord, cnt: usize) -> Option<T> {
+        let i = self.pos_to_idx(from);
         let (row, _) = (i / self.width, i % self.width);
         (row > (cnt - 1)).then(|| self.data[i - self.width * cnt])
     }
-    pub fn get_down(&self, i: usize, cnt: usize) -> Option<T> {
+    pub fn get_down(&self, from: Coord, cnt: usize) -> Option<T> {
+        let i = self.pos_to_idx(from);
         let (row, _) = (i / self.width, i % self.width);
         (row + cnt < self.height).then(|| self.data[i + self.width * cnt])
     }
-
-    pub fn get_ur(&self, i: usize, cnt: usize) -> Option<T> {
-        self.ur_idx(i, cnt).map(|idx| self.data[idx])
+    pub fn get_left(&self, from: Coord, cnt: usize) -> Option<T> {
+        let i = self.pos_to_idx(from);
+        let (_, col) = (i / self.width, i % self.width);
+        (col + cnt < self.width).then(|| self.data[i + cnt])
     }
-
-    pub fn get_ul(&self, i: usize, cnt: usize) -> Option<T> {
-        self.ul_idx(i, cnt).map(|idx| self.data[idx])
-    }
-
-    pub fn get_lr(&self, i: usize, cnt: usize) -> Option<T> {
-        self.lr_idx(i, cnt).map(|idx| self.data[idx])
-    }
-
-    pub fn get_ll(&self, i: usize, cnt: usize) -> Option<T> {
-        self.ll_idx(i, cnt).map(|idx| self.data[idx])
+    pub fn get_right(&self, from: Coord, cnt: usize) -> Option<T> {
+        let i = self.pos_to_idx(from);
+        let (_, col) = (i / self.width, i % self.width);
+        (col >= cnt).then(|| self.data[i - cnt])
     }
 }
+
 impl<T> BasicGrid<T>
 where
     T: Display,
@@ -304,5 +301,25 @@ impl<T> BasicGrid<T> {
             at_row: 0,
             at_col: 0,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_move() {
+        let data = "89010123
+78121874
+87430965
+96549874
+45678903
+32019012
+01329801
+10456732";
+        let input: Vec<&str> = data.lines().collect();
+        let grid: BasicGrid<u8> = BasicGrid::new(&input);
+        assert_eq!(grid.get_down(Coord::new(0, 0), 1), Some(7));
     }
 }
