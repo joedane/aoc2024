@@ -38,6 +38,26 @@ impl Coord {
     pub fn new(row: usize, col: usize) -> Self {
         Self { row, col }
     }
+    pub fn in_dir(&self, dir: Dir) -> Self {
+        match dir {
+            Dir::Down => Self {
+                row: self.row + 1,
+                ..*self
+            },
+            Dir::Up => Self {
+                row: self.row - 1,
+                ..*self
+            },
+            Dir::Left => Self {
+                col: self.col - 1,
+                ..*self
+            },
+            Dir::Right => Self {
+                col: self.col + 1,
+                ..*self
+            },
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -189,25 +209,15 @@ impl<T> BasicGrid<T>
 where
     T: Copy,
 {
-    pub fn get_up(&self, from: Coord, cnt: usize) -> Option<T> {
+    pub fn get(&self, from: Coord, dir: Dir, cnt: usize) -> Option<T> {
         let i = self.pos_to_idx(from);
-        let (row, _) = (i / self.width, i % self.width);
-        (row > (cnt - 1)).then(|| self.data[i - self.width * cnt])
-    }
-    pub fn get_down(&self, from: Coord, cnt: usize) -> Option<T> {
-        let i = self.pos_to_idx(from);
-        let (row, _) = (i / self.width, i % self.width);
-        (row + cnt < self.height).then(|| self.data[i + self.width * cnt])
-    }
-    pub fn get_left(&self, from: Coord, cnt: usize) -> Option<T> {
-        let i = self.pos_to_idx(from);
-        let (_, col) = (i / self.width, i % self.width);
-        (col + cnt < self.width).then(|| self.data[i + cnt])
-    }
-    pub fn get_right(&self, from: Coord, cnt: usize) -> Option<T> {
-        let i = self.pos_to_idx(from);
-        let (_, col) = (i / self.width, i % self.width);
-        (col >= cnt).then(|| self.data[i - cnt])
+        let (row, col) = (i / self.width, i % self.width);
+        match dir {
+            Dir::Up => (row > (cnt - 1)).then(|| self.data[i - self.width * cnt]),
+            Dir::Down => (row + cnt < self.height).then(|| self.data[i + self.width * cnt]),
+            Dir::Left => (col >= cnt).then(|| self.data[i - cnt]),
+            Dir::Right => (col + cnt < self.width).then(|| self.data[i + cnt]),
+        }
     }
 }
 
@@ -320,6 +330,9 @@ mod test {
 10456732";
         let input: Vec<&str> = data.lines().collect();
         let grid: BasicGrid<u8> = BasicGrid::new(&input);
-        assert_eq!(grid.get_down(Coord::new(0, 0), 1), Some(7));
+        assert_eq!(grid.get(Coord::new(0, 0), Dir::Down, 1), Some(b'7'));
+        assert_eq!(grid.get(Coord::new(1, 2), Dir::Left, 1), Some(b'8'));
+        assert_eq!(grid.get(Coord::new(3, 0), Dir::Up, 1), Some(b'8'));
+        assert_eq!(grid.get(Coord::new(0, 0), Dir::Right, 1), Some(b'9'));
     }
 }
