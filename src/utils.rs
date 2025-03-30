@@ -38,24 +38,36 @@ impl Coord {
     pub fn new(row: usize, col: usize) -> Self {
         Self { row, col }
     }
-    pub fn in_dir(&self, dir: Dir) -> Self {
+    pub fn in_dir(&self, dir: Dir) -> Option<Self> {
         match dir {
-            Dir::Down => Self {
+            Dir::Down => Some(Self {
                 row: self.row + 1,
                 ..*self
-            },
-            Dir::Up => Self {
-                row: self.row - 1,
-                ..*self
-            },
-            Dir::Left => Self {
-                col: self.col - 1,
-                ..*self
-            },
-            Dir::Right => Self {
+            }),
+            Dir::Up => {
+                if self.row > 0 {
+                    Some(Self {
+                        row: self.row - 1,
+                        ..*self
+                    })
+                } else {
+                    None
+                }
+            }
+            Dir::Left => {
+                if self.col > 0 {
+                    Some(Self {
+                        col: self.col - 1,
+                        ..*self
+                    })
+                } else {
+                    None
+                }
+            }
+            Dir::Right => Some(Self {
                 col: self.col + 1,
                 ..*self
-            },
+            }),
         }
     }
 }

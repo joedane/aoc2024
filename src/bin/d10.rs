@@ -34,7 +34,7 @@ impl Part1 {
         for dir in [Dir::Up, Dir::Down, Dir::Left, Dir::Right] {
             if let Some(l) = self.grid.get(start, dir, 1) {
                 if l == target {
-                    let from_here = self.trace_from(start.in_dir(dir));
+                    let from_here = self.trace_from(start.in_dir(dir).unwrap());
                     //println!("from {:?} in direction {:?} is {:?}", start, dir, from_here);
                     nines.extend(from_here);
                 }
@@ -61,7 +61,7 @@ impl Part2 {
         for dir in [Dir::Up, Dir::Down, Dir::Left, Dir::Right] {
             if let Some(l) = self.grid.get(start, dir, 1) {
                 if l == target {
-                    let from_here = self.trace_from(start.in_dir(dir));
+                    let from_here = self.trace_from(start.in_dir(dir).unwrap());
                     //println!("from {:?} in direction {:?} is {:?}", start, dir, from_here);
                     cnt += from_here;
                 }
