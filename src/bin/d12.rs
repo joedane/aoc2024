@@ -56,6 +56,10 @@ impl Region {
         self.area() * self.perieter()
     }
 
+    fn part2_price(&self, grid: &BasicGrid<AsciiByte>) -> usize {
+        self.area() * self.sides(grid)
+    }
+
     fn sides(&self, grid: &BasicGrid<AsciiByte>) -> usize {
         self.plots.iter().map(|c| corners(*c, grid)).sum()
     }
@@ -63,16 +67,24 @@ impl Region {
 
 fn corners(c: Coord, grid: &BasicGrid<AsciiByte>) -> usize {
     let mut cnt = 0_usize;
+    // println!("corners for {c:?}");
     for d in [Dir::Up, Dir::Right, Dir::Down, Dir::Left] {
         let (d1, d2) = (d, d.turn_right());
         if grid.get(c, d1, 1) != Some(*grid.at(c)) && grid.get(c, d2, 1) != Some(*grid.at(c)) {
             // convex corner
             cnt += 1;
+            //println!("convex corner using directions {d1:?} and {d2:?}");
         } else if grid.get(c, d1, 1) == Some(*grid.at(c)) && grid.get(c, d2, 1) == Some(*grid.at(c))
         {
-            let x = grid.next_pos(c, d1).and_then(|x| grid.next_pos(x, d2));
-            if x != Some(c) {
-                cnt += 1;
+            if let Some(x) = grid
+                .next_pos(c, d1)
+                .and_then(|x| grid.next_pos(x, d2))
+                .map(|p| grid.at(p))
+            {
+                if x != grid.at(c) {
+                    cnt += 1;
+                    //println!("concave corner using directions {d1:?} and {d2:?}");
+                }
             }
         }
     }
@@ -130,8 +142,8 @@ fn part1() {
 }
 
 fn part2() {
-    let input = TEST;
-    //let input = std::fs::read_to_string("input/d12.txt").unwrap();
+    //let input = TEST4.trim();
+    let input = std::fs::read_to_string("input/d12.txt").unwrap();
     let data: Vec<&str> = input.lines().collect();
     let grid: BasicGrid<AsciiByte> = BasicGrid::new(&data);
     let regions = build_regions(&grid);
@@ -145,18 +157,19 @@ fn part2() {
         );
     }
     println!(
-        "total corners: {}",
-        regions.iter().map(|r| r.sides(&grid)).sum::<usize>()
+        "total price: {}",
+        regions.iter().map(|r| r.part2_price(&grid)).sum::<usize>()
     );
 }
 fn main() {
     part2();
 }
 
-static TEST: &str = "AAAA
+static TEST: &str = r#"
+AAAA
 BBCD
 BBCC
-EEEC";
+EEEC"#;
 
 static TEST1: &str = "OOOOO
 OXOXO
@@ -174,3 +187,16 @@ VVIIICJJEE
 MIIIIIJJEE
 MIIISIJEEE
 MMMISSJEEE";
+
+static TEST3: &str = "EEEEE
+EXXXX
+EEEEE
+EXXXX
+EEEEE";
+
+static TEST4: &str = "AAAAAA
+AAABBA
+AAABBA
+ABBAAA
+ABBAAA
+AAAAAA";
