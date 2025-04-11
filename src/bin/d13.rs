@@ -1,3 +1,4 @@
+use num_rational::{Ratio, Rational64};
 use regex::Regex;
 use std::str::FromStr;
 
@@ -37,52 +38,92 @@ impl FromStr for Part1Game {
     }
 }
 
-struct MatchIter {
-    a: u64,
-    b: u64,
-    target: u64,
-    next_a: Option<u64>,
+trait CloseEnough {
+    fn close_enough(self, other: Self) -> bool;
 }
 
-impl MatchIter {
-    fn new(a: u64, b: u64, target: u64) -> Self {
-        Self {
-            a,
-            b,
-            target,
-            next_a: Some(target / a),
-        }
-    }
-}
-impl Iterator for MatchIter {
-    type Item = (u64, u64);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let ret_a = self.next_a;
-        if let Some(next_a) = self.next_a {
-            if next_a > self.a {
-                self.next_a = Some(next_a - self.a);
-            } else {
-                self.next_a = None;
-            }
-        }
-        ret.and_then(|a| Some(a))
+impl CloseEnough for f64 {
+    fn close_enough(self, other: Self) -> bool {
+        (self - other).abs() < 0.0001
     }
 }
 
-fn part1(part1: Part1Game) {
-    let (a_x, a_y) = part1.a;
-    let (b_x, b_y) = part1.b;
-    let (total_x, total_y) = part1.total;
+impl CloseEnough for Ratio<i64> {
+    fn close_enough(self, other: Self) -> bool {
+        self == other
+    }
+}
+fn play_game(game: Part1Game) -> Option<u64> {
+    let (a_x, a_y) = game.a;
+    let (a_x, a_y): (Ratio<i64>, Ratio<i64>) = (
+        Ratio::from_integer(a_x.try_into().unwrap()),
+        Ratio::from_integer(a_y.try_into().unwrap()),
+    );
+    let (b_x, b_y) = game.b;
+    let (b_x, b_y): (Ratio<i64>, Ratio<i64>) = (
+        Ratio::from_integer(b_x.try_into().unwrap()),
+        Ratio::from_integer(b_y.try_into().unwrap()),
+    );
+    let (total_x, total_y) = game.total;
+    let (total_x, total_y): (Ratio<i64>, Ratio<i64>) = (
+        Ratio::from_integer(total_x.try_into().unwrap()),
+        Ratio::from_integer(total_y.try_into().unwrap()),
+    );
+
+    let R = a_x / a_y;
+    let nb = (total_x - (R * total_y)) / (b_x - (R * b_y));
+    let na = (total_y - nb * b_y) / a_y;
+    if na.close_enough(na.round()) && nb.close_enough(nb.round()) {
+        //println!("OK: {:?}", game);
+        if !(na.is_integer() && nb.is_integer()) {
+            panic!()
+        } else {
+            let na: u64 = na.to_integer().try_into().unwrap();
+            let nb: u64 = nb.to_integer().try_into().unwrap();
+            Some(3_u64 * na + nb)
+        }
+    } else {
+        //println!("No (na: {}, nb: {}) {:?}", na, nb, game);
+        None
+    }
+}
+
+fn part1(part1: Part1Game) -> Option<u64> {
+    play_game(part1)
+}
+
+fn part2(mut part2: Part1Game) -> Option<u64> {
+    let factor = 10000000000000;
+    part2.total.0 += factor;
+    part2.total.1 += factor;
+    play_game(part2)
 }
 
 fn main() {
-    let s: Part1Game = TEST.parse().unwrap();
-    part1(s);
+    //let input = TEST;
+    let input = std::fs::read_to_string("input/d13.txt").unwrap();
+    let sum: u64 = input
+        .trim()
+        .split("\n\n")
+        .map(|s| part2(s.parse().unwrap()).unwrap_or(0))
+        .sum();
+    println!("{sum}");
 }
 
 static TEST: &str = r#"
 Button A: X+94, Y+34
 Button B: X+22, Y+67
 Prize: X=8400, Y=5400
+
+Button A: X+26, Y+66
+Button B: X+67, Y+21
+Prize: X=12748, Y=12176
+
+Button A: X+17, Y+86
+Button B: X+84, Y+37
+Prize: X=7870, Y=6450
+
+Button A: X+69, Y+23
+Button B: X+27, Y+71
+Prize: X=18641, Y=10279
 "#;
