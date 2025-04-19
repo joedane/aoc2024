@@ -14,6 +14,7 @@ serde_xml = "0.9.1"
 serde = "1.0.219"
 random_color = "1.0.0"
 num-rational = "0.4.2"
+raylib = "5.5.1"
 
 [lib]
 name = "utils"
