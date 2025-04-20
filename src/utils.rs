@@ -203,6 +203,11 @@ impl<T> BasicGrid<T> {
     pub fn at(&self, pos: Coord) -> &T {
         &self.data[self.pos_to_idx(pos)]
     }
+
+    pub fn swap(&mut self, v1: Coord, v2: Coord) {
+        self.data
+            .swap(self.idx_for(v1.row, v1.col), self.idx_for(v2.row, v2.col));
+    }
 }
 
 impl<T> BasicGrid<T>

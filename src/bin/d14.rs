@@ -1,4 +1,6 @@
 use raylib::prelude::*;
+use rayon::prelude::*;
+
 use std::{collections::HashMap, str::FromStr};
 
 use regex::Regex;
@@ -16,6 +18,7 @@ impl Coord {
 }
 #[derive(Debug)]
 struct Bot {
+    name: String,
     p: Coord,
     v: Coord,
 }
@@ -25,6 +28,7 @@ impl Bot {
         Self {
             p: Coord::new(p_x, p_y),
             v: Coord::new(v_x, v_y),
+            name: format!("Bot p({}, {}), v({}, {})", p_x, p_y, v_x, v_y),
         }
     }
 }
@@ -93,26 +97,32 @@ fn part1() {
 }
 
 fn move_bots(bots: &mut Vec<Bot>, width: i16, height: i16) {
-    bots.iter_mut().for_each(|b| {
+    bots.par_iter_mut().for_each(|b| {
         b.p.x = (b.p.x + b.v.x).rem_euclid(width);
         b.p.y = (b.p.y + b.v.y).rem_euclid(height);
     });
 }
 
+fn dump_bot_positions(bots: &Vec<Bot>) {
+    bots.iter().for_each(|bot| {
+        println!("bot {} is at {:?}", bot.name, bot.p);
+    });
+}
 fn part2() {
     let (mut rl, thread) = raylib::init().size(1000, 1000).build();
-    rl.set_target_fps(20);
+    rl.set_target_fps(90);
 
     let (x_base, y_base) = (35, 35);
     let (cell_width, cell_height) = (9, 9);
     let (x_offset, y_offset) = (1, 1);
     let (rect_width, rect_height) = (7, 7);
     let mut last_update: f64 = 0.0;
-    let update_freq: f64 = 0.1;
+    let mut update_freq: f64 = 0.001;
 
     let input = std::fs::read_to_string("input/d14.txt").unwrap();
     //let input = TEST;
     let (width, height) = (101_i16, 103_i16);
+    //let (width, height) = (11_i16, 7_i16);
     let mut frame = 0;
     let mut bots: Vec<Bot> = input
         .lines()
@@ -124,8 +134,13 @@ fn part2() {
         let current_time = rl.get_time();
         if last_update + update_freq < current_time {
             move_bots(&mut bots, width, height);
+            //println!("FRAME {frame}\n");
+            //dump_bot_positions(&bots);
             last_update = current_time;
             frame += 1;
+            if frame == 8150 {
+                update_freq = 1.0;
+            }
         }
         rl.draw(&thread, |mut d| {
             d.clear_background(Color::WHITE);
