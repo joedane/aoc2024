@@ -129,7 +129,7 @@ fn apply_dir(grid: &mut BasicGrid<State>, mut robot_pos: Coord, dir: Dir15) -> C
     robot_pos
 }
 
-fn main() {
+fn part1() {
     //let input = TEST1;
     let input = std::fs::read_to_string("input/d15.txt").unwrap();
     let p = input.find("\n\n").unwrap();
@@ -162,6 +162,158 @@ fn main() {
         .map(|c| c.row * 100 + c.col)
         .sum();
     println!("{}", res);
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+enum StatePart2 {
+    Wall,
+    BoxR,
+    BoxL,
+    #[default]
+    Empty,
+    Robot,
+}
+
+fn check_movable_part2(grid: &BasicGrid<StatePart2>, pos: Coord, dir: Dir) -> bool {
+    if let Some(c) = grid.next_pos(pos, dir) {
+        match *grid.at(c) {
+            StatePart2::Wall => false,
+            StatePart2::Empty => true,
+            StatePart2::BoxR => {
+                if dir == Dir::Left || dir == Dir::Right {
+                    check_movable_part2(grid, c, dir)
+                } else {
+                    if let Some(box_l) = grid.next_pos(c, Dir::Left) {
+                        check_movable_part2(grid, c, dir) && check_movable_part2(grid, box_l, dir)
+                    } else {
+                        false
+                    }
+                }
+            }
+            StatePart2::BoxL => {
+                if dir == Dir::Left || dir == Dir::Right {
+                    check_movable_part2(grid, c, dir)
+                } else {
+                    if let Some(box_r) = grid.next_pos(c, Dir::Right) {
+                        check_movable_part2(grid, c, dir) && check_movable_part2(grid, box_r, dir)
+                    } else {
+                        false
+                    }
+                }
+            }
+            StatePart2::Robot => panic!(),
+        }
+    } else {
+        false
+    }
+}
+
+fn move_items_part2(grid: &mut BasicGrid<StatePart2>, start: Coord, dir: Dir) -> Coord {
+    if let Some(c) = grid.next_pos(start, dir) {
+        match (*grid.at(c), dir) {
+            (StatePart2::Wall, _) => panic!(),
+            (StatePart2::Robot, _) => panic!(),
+            (StatePart2::Empty, _) => {
+                grid.swap(start, c);
+            }
+            (StatePart2::BoxL | StatePart2::BoxR, Dir::Left | Dir::Right) => {
+                move_items_part2(grid, c, dir);
+            }
+            (StatePart2::BoxR, _) => {
+                move_items_part2(grid, c, dir);
+                move_items_part2(grid, grid.next_pos(c, Dir::Left).unwrap(), dir);
+            }
+            (StatePart2::BoxL, _) => {
+                move_items_part2(grid, c, dir);
+                move_items_part2(grid, grid.next_pos(c, Dir::Right).unwrap(), dir);
+            }
+        }
+        return c;
+    }
+    panic!()
+}
+fn apply_dir_part2(grid: &mut BasicGrid<StatePart2>, mut robot_pos: Coord, dir: Dir) -> Coord {
+    if check_movable_part2(grid, robot_pos, dir) {
+        robot_pos = move_items_part2(grid, robot_pos, dir);
+    }
+    robot_pos
+}
+
+fn part2() {
+    let input = TEST1;
+    //let input = std::fs::read_to_string("input/d15.txt").unwrap();
+    let p = input.find("\n\n").unwrap();
+    let grid_input: Vec<&str> = input[0..p].trim().split("\n").collect();
+    let base_grid: BasicGrid<State> = BasicGrid::new(&grid_input);
+    let directions: Vec<Dir15> = input[p..]
+        .as_bytes()
+        .iter()
+        .filter_map(|&c| {
+            if c.is_ascii_whitespace() {
+                None
+            } else {
+                Some(c.into())
+            }
+        })
+        .collect();
+
+    let mut grid: BasicGrid<StatePart2> =
+        BasicGrid::new_default(base_grid.width * 2, base_grid.height);
+
+    for r in 0..base_grid.height {
+        for c in 0..base_grid.width {
+            match base_grid[Coord::new(r, c)] {
+                State::Wall => {
+                    grid[Coord::new(r, 2 * c)] = StatePart2::Wall;
+                    grid[Coord::new(r, 2 * c + 1)] = StatePart2::Wall;
+                }
+                State::Box => {
+                    grid[Coord::new(r, 2 * c)] = StatePart2::BoxL;
+                    grid[Coord::new(r, 2 * c + 1)] = StatePart2::BoxR;
+                }
+                State::Empty => {
+                    grid[Coord::new(r, 2 * c)] = StatePart2::Empty;
+                    grid[Coord::new(r, 2 * c + 1)] = StatePart2::Empty;
+                }
+                State::Robot => {
+                    grid[Coord::new(r, 2 * c)] = StatePart2::Robot;
+                    grid[Coord::new(r, 2 * c + 1)] = StatePart2::Empty;
+                }
+            }
+        }
+    }
+    let mut robot_pos = grid
+        .find_with(|s| matches!(*s, StatePart2::Robot))
+        .pop()
+        .unwrap();
+
+    for dir in directions {
+        robot_pos = apply_dir_part2(&mut grid, robot_pos, dir.0);
+        //println!("after applying {dir:?}:");
+        //grid.display_all();
+    }
+    let res: usize = grid
+        .find_with(|state| matches!(*state, StatePart2::BoxL))
+        .iter()
+        .map(|c| {
+            let y = if c.row < grid.height / 2 {
+                c.row
+            } else {
+                grid.height - c.row
+            };
+            let x = if c.col < grid.width / 2 {
+                c.col
+            } else {
+                grid.width - c.col
+            };
+            y * 100 * x
+        })
+        .sum();
+    println!("{}", res);
+}
+
+fn main() {
+    part2();
 }
 
 static TEST: &str = r#"

@@ -121,6 +121,19 @@ where
 
 impl<T> BasicGrid<T>
 where
+    T: Default + Clone,
+{
+    pub fn new_default(width: usize, height: usize) -> BasicGrid<T> {
+        BasicGrid {
+            data: vec![Default::default(); width * height].into_boxed_slice(),
+            width,
+            height,
+        }
+    }
+}
+
+impl<T> BasicGrid<T>
+where
     T: From<u8>,
 {
     pub fn new(lines: &[&str]) -> Self {
