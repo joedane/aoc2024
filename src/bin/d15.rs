@@ -174,6 +174,27 @@ enum StatePart2 {
     Robot,
 }
 
+impl StatePart2 {
+    fn as_str(&self) -> &str {
+        match self {
+            StatePart2::Wall => "#",
+            StatePart2::BoxR => "]",
+            StatePart2::BoxL => "[",
+            StatePart2::Empty => ".",
+            StatePart2::Robot => "@",
+        }
+    }
+}
+
+fn dump(grid: &BasicGrid<StatePart2>) {
+    for y in 0..(grid.height) {
+        for x in 0..(grid.width) {
+            print!("{}", grid[Coord::new(y, x)].as_str());
+        }
+        println!();
+    }
+}
+
 fn check_movable_part2(grid: &BasicGrid<StatePart2>, pos: Coord, dir: Dir) -> bool {
     if let Some(c) = grid.next_pos(pos, dir) {
         match *grid.at(c) {
@@ -218,14 +239,17 @@ fn move_items_part2(grid: &mut BasicGrid<StatePart2>, start: Coord, dir: Dir) ->
             }
             (StatePart2::BoxL | StatePart2::BoxR, Dir::Left | Dir::Right) => {
                 move_items_part2(grid, c, dir);
+                grid.swap(start, c);
             }
             (StatePart2::BoxR, _) => {
                 move_items_part2(grid, c, dir);
                 move_items_part2(grid, grid.next_pos(c, Dir::Left).unwrap(), dir);
+                grid.swap(start, c);
             }
             (StatePart2::BoxL, _) => {
                 move_items_part2(grid, c, dir);
                 move_items_part2(grid, grid.next_pos(c, Dir::Right).unwrap(), dir);
+                grid.swap(start, c);
             }
         }
         return c;
@@ -240,8 +264,8 @@ fn apply_dir_part2(grid: &mut BasicGrid<StatePart2>, mut robot_pos: Coord, dir: 
 }
 
 fn part2() {
-    let input = TEST1;
-    //let input = std::fs::read_to_string("input/d15.txt").unwrap();
+    //let input = TEST1;
+    let input = std::fs::read_to_string("input/d15.txt").unwrap();
     let p = input.find("\n\n").unwrap();
     let grid_input: Vec<&str> = input[0..p].trim().split("\n").collect();
     let base_grid: BasicGrid<State> = BasicGrid::new(&grid_input);
@@ -282,6 +306,9 @@ fn part2() {
             }
         }
     }
+
+    dump(&grid);
+
     let mut robot_pos = grid
         .find_with(|s| matches!(*s, StatePart2::Robot))
         .pop()
@@ -290,24 +317,12 @@ fn part2() {
     for dir in directions {
         robot_pos = apply_dir_part2(&mut grid, robot_pos, dir.0);
         //println!("after applying {dir:?}:");
-        //grid.display_all();
+        //dump(&grid);
     }
     let res: usize = grid
         .find_with(|state| matches!(*state, StatePart2::BoxL))
         .iter()
-        .map(|c| {
-            let y = if c.row < grid.height / 2 {
-                c.row
-            } else {
-                grid.height - c.row
-            };
-            let x = if c.col < grid.width / 2 {
-                c.col
-            } else {
-                grid.width - c.col
-            };
-            y * 100 * x
-        })
+        .map(|c| c.row * 100 + c.col)
         .sum();
     println!("{}", res);
 }
@@ -350,3 +365,14 @@ vvv<<^>^v^^><<>>><>^<<><^vv^^<>vvv<>><^^v>^>vv<>v<<<<v<^v>^<^^>>>^<v<v
 <><^^>^^^<><vvvvv^v<v<<>^v<v>v<<^><<><<><<<^^<<<^<<>><<><^^^>^^<>^>v<>
 ^^>vv<^v^v<vv>^<><v<^v>^^^>>>^^vvv^>vvv<>>>^<^>>>>>^<<^v>^vvv<>^<><<v>
 v^^>>><<^^<>>^v^<v^vv<>v^<<>^<^v^v><^<<<><<^<v><v<>vv>>v><v^<vv<>v^<<^"#;
+
+static TEST2: &str = r#"
+#######
+#...#.#
+#.....#
+#..OO@#
+#..O..#
+#.....#
+#######
+
+<vv<<^^<<^^"#;
