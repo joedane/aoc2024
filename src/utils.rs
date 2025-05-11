@@ -90,6 +90,14 @@ impl Dir {
         }
     }
 
+    pub fn turn_left(self) -> Self {
+        match self {
+            Dir::Up => Dir::Left,
+            Dir::Down => Dir::Right,
+            Dir::Left => Dir::Down,
+            Dir::Right => Dir::Up,
+        }
+    }
     pub fn as_ascii_byte(&self) -> AsciiByte {
         match self {
             Dir::Up => AsciiByte(b'^'),
