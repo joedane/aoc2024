@@ -16,8 +16,23 @@ random_color = "1.0.0"
 num-rational = "0.4.2"
 raylib = "5.5.1"
 rayon = "1.10.0"
+owo-colors = "4.2.1"
+const-random = "0.1.18"
+rand = "0.9.1"
+
+[dev-dependencies]
+criterion = "0.6.0"
+
 
 [lib]
 name = "utils"
 path = "src/utils.rs"
+
+[[bench]]
+name = "day16"
+harness = false
+
+[profile.release]
+debug = true
+
 
