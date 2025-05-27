@@ -1,8 +1,10 @@
 use std::{
+    cell::{Cell, RefCell},
     collections::{BinaryHeap, HashMap, HashSet},
     fmt::Display,
 };
 
+use slotmap::{new_key_type, SecondaryMap, SlotMap};
 use utils::{BasicGrid, Coord, Dir};
 
 use owo_colors::OwoColorize;
@@ -124,86 +126,135 @@ impl Partials {
         self.0.push(item);
     }
 }
-fn paths_from(grid: &BasicGrid<State>, start: Coord) -> Vec<PartialPath> {
-    let mut partials: Partials = Partials(vec![PartialPath {
-        steps: vec![],
-        coords: vec![start],
-        facing: Dir::Right,
-        score: 0,
-    }]);
-    let mut complete_paths: Vec<PartialPath> = Default::default();
-    let mut best_paths: HashMap<(Coord, Dir), usize> = Default::default();
 
-    fn try_path(
-        grid: &BasicGrid<State>,
-        path: &PartialPath,
-        partials: &mut Partials,
-        complete_paths: &mut Vec<PartialPath>,
-        best_paths: &mut HashMap<(Coord, Dir), usize>,
-    ) {
-        let next_pos = grid
-            .next_pos(*path.coords.last().unwrap(), path.facing)
-            .unwrap();
-        //if !path.coords.contains(&next_pos) {
-        match grid.at(next_pos) {
-            State::End => {
-                complete_paths.push(path.move_facing(next_pos));
+new_key_type! {
+    struct LinksKey;
+}
+struct PathData {
+    score: usize,
+    pos: Coord,
+    facing: Dir,
+}
+
+struct Links {
+    straight: Option<LinksKey>,
+    left: Option<LinksKey>,
+    right: Option<LinksKey>,
+    last: Option<LinksKey>,
+}
+
+impl Links {
+    fn link_from(k: LinksKey) -> Self {
+        Self {
+            straight: None,
+            left: None,
+            right: None,
+            last: Some(k),
+        }
+    }
+}
+
+fn path_from(
+    path_tree: &SlotMap<LinksKey, RefCell<Links>>,
+    path_data: &SecondaryMap<LinksKey, PathData>,
+    from: LinksKey,
+) -> Vec<Coord> {
+    let mut v = vec![];
+    let mut l = from;
+    loop {
+        v.push(path_data.get(l).unwrap().pos);
+        match path_tree.get(l).unwrap().borrow().last {
+            Some(parent) => {
+                l = parent;
             }
-            State::Wall => {}
-            State::Empty | State::Start => {
-                let next = path.move_facing(next_pos);
-                let next_score = next.score;
-                if best_paths
-                    .get(&(next_pos, path.facing))
-                    .is_none_or(|v| *v >= next_score)
-                {
-                    best_paths.insert((next_pos, path.facing), next_score);
-                    partials.push(next);
+            None => {
+                break;
+            }
+        };
+    }
+    v
+}
+fn paths_from(grid: &BasicGrid<State>, start: Coord) -> (Vec<Vec<Coord>>, usize) {
+    let mut path_tree: SlotMap<LinksKey, RefCell<Links>> = SlotMap::with_key();
+    let root = path_tree.insert(RefCell::new(Links {
+        straight: None,
+        left: None,
+        right: None,
+        last: None,
+    }));
+    let mut path_data = SecondaryMap::new();
+    path_data.insert(
+        root,
+        PathData {
+            score: 0,
+            pos: start,
+            facing: Dir::Right,
+        },
+    );
+
+    let mut to_visit: Vec<LinksKey> = vec![root];
+    let mut completed: Vec<LinksKey> = Default::default();
+    let mut best_scores: HashMap<(Coord, Dir), usize> = Default::default();
+
+    while let Some(k) = to_visit.pop() {
+        let data = path_data.get(k).unwrap();
+        let current_pos = data.pos;
+        'dir: for (dir, score) in [
+            (data.facing, data.score + 1),
+            (data.facing.turn_left(), data.score + 1001),
+            (data.facing.turn_right(), data.score + 1001),
+        ] {
+            if let Some(c) = grid.next_pos(current_pos, dir) {
+                match grid.at(c) {
+                    State::Wall => {}
+                    state @ State::Empty | state @ State::Start | state @ State::End => {
+                        if let Some(best_score) = best_scores.get(&(c, dir)) {
+                            if *best_score < score {
+                                continue 'dir;
+                            }
+                        }
+                        best_scores.insert((c, dir), score);
+                        let new_data = PathData {
+                            score: score,
+                            pos: c,
+                            facing: dir,
+                        };
+                        let new_link = path_tree.insert(RefCell::new(Links::link_from(k)));
+                        path_data.insert(new_link, new_data);
+                        let _ = path_tree
+                            .get(k)
+                            .unwrap()
+                            .borrow_mut()
+                            .straight
+                            .insert(new_link);
+                        if matches!(state, State::End) {
+                            completed.push(new_link);
+                        } else {
+                            to_visit.push(new_link);
+                        }
+                    }
                 }
             }
         }
-        //}
     }
-
-    while let Some(p) = partials.pop() {
-        //println!("processing {:?}", p);
-        //dump_partials(grid, &partials.0);
-        //println!("{:?}", p.steps);
-        //println!("YYY");
-
-        try_path(
-            grid,
-            &p,
-            &mut partials,
-            &mut complete_paths,
-            &mut best_paths,
-        );
-        try_path(
-            grid,
-            &p.turn_left(),
-            &mut partials,
-            &mut complete_paths,
-            &mut best_paths,
-        );
-        try_path(
-            grid,
-            &p.turn_right(),
-            &mut partials,
-            &mut complete_paths,
-            &mut best_paths,
-        );
-    }
-    complete_paths
+    let end_coord = path_data.get(completed[0]).unwrap().pos;
+    let best_score = best_scores
+        .iter()
+        .filter(|((coord, dir), v)| *coord == end_coord)
+        .map(|((coord, dir), v)| *v)
+        .min()
+        .unwrap();
+    let paths: Vec<Vec<Coord>> = completed
+        .into_iter()
+        .filter(|l| path_data.get(*l).unwrap().score == best_score)
+        .map(|l| path_from(&path_tree, &path_data, l))
+        .collect();
+    (paths, best_score)
 }
 
-fn best_path_from(grid: &BasicGrid<State>, start: Coord) -> Option<usize> {
-    let mut paths = paths_from(grid, start);
-    if paths.is_empty() {
-        return None;
-    } else {
-        paths.sort_by_key(|p| p.score);
-        return Some(paths.first().unwrap().score);
-    }
+fn best_score_from(grid: &BasicGrid<State>, start: Coord) -> Option<usize> {
+    let paths = paths_from(grid, start);
+    Some(paths.1)
 }
 
 fn part1() {
@@ -216,7 +267,7 @@ fn part1() {
         .first()
         .unwrap()
         .clone();
-    println!("{:?}", best_path_from(&grid, start_pos));
+    println!("{:?}", best_score_from(&grid, start_pos));
 }
 
 fn dump_tiles(grid: &BasicGrid<State>, tiles: &HashSet<Coord>) {
@@ -244,16 +295,11 @@ fn part2() {
         .first()
         .unwrap()
         .clone();
-    let paths = paths_from(&grid, start_pos);
-    let best_score: usize = paths.iter().map(|p| p.score).min().unwrap();
+    let (paths, score) = paths_from(&grid, start_pos);
+    let cells: HashSet<Coord> = paths.into_iter().flat_map(|v| v.into_iter()).collect();
+    dump_tiles(&grid, &cells);
+    println!("{}", cells.len());
     //dump_partials(&grid, &paths);
-    let tiles: HashSet<Coord> = paths
-        .iter()
-        .filter(|p| p.score == best_score)
-        .flat_map(|path| path.coords.clone())
-        .collect();
-    println!("{}", tiles.len());
-    dump_tiles(&grid, &tiles);
 }
 
 pub fn main() {
