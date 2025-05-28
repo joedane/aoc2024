@@ -136,19 +136,33 @@ struct PathData {
     facing: Dir,
 }
 
+#[derive(Clone, Copy, Debug)]
+enum LinkState {
+    Unvisited,
+    HasChild(LinksKey),
+    NoChild,
+}
 struct Links {
-    straight: Option<LinksKey>,
-    left: Option<LinksKey>,
-    right: Option<LinksKey>,
+    straight: LinkState,
+    left: LinkState,
+    right: LinkState,
     last: Option<LinksKey>,
 }
 
 impl Links {
+    fn root() -> Self {
+        Links {
+            straight: LinkState::Unvisited,
+            left: LinkState::Unvisited,
+            right: LinkState::Unvisited,
+            last: None,
+        }
+    }
     fn link_from(k: LinksKey) -> Self {
         Self {
-            straight: None,
-            left: None,
-            right: None,
+            straight: LinkState::Unvisited,
+            left: LinkState::Unvisited,
+            right: LinkState::Unvisited,
             last: Some(k),
         }
     }
@@ -174,14 +188,21 @@ fn path_from(
     }
     v
 }
+
+fn can_drop(node: &Links) -> bool {
+    if matches!(
+        (node.straight, node.left, node.right),
+        (LinkState::NoChild, LinkState::NoChild, LinkState::NoChild)
+    ) {
+        true
+    } else {
+        false
+    }
+}
+
 fn paths_from(grid: &BasicGrid<State>, start: Coord) -> (Vec<Vec<Coord>>, usize) {
     let mut path_tree: SlotMap<LinksKey, RefCell<Links>> = SlotMap::with_key();
-    let root = path_tree.insert(RefCell::new(Links {
-        straight: None,
-        left: None,
-        right: None,
-        last: None,
-    }));
+    let root = path_tree.insert(RefCell::new(Links::root()));
     let mut path_data = SecondaryMap::new();
     path_data.insert(
         root,
@@ -199,34 +220,40 @@ fn paths_from(grid: &BasicGrid<State>, start: Coord) -> (Vec<Vec<Coord>>, usize)
     while let Some(k) = to_visit.pop() {
         let data = path_data.get(k).unwrap();
         let current_pos = data.pos;
-        'dir: for (dir, score) in [
-            (data.facing, data.score + 1),
-            (data.facing.turn_left(), data.score + 1001),
-            (data.facing.turn_right(), data.score + 1001),
-        ] {
-            if let Some(c) = grid.next_pos(current_pos, dir) {
+        if current_pos == Coord::new(13, 3) {
+            println!("TTT");
+        }
+        let facing = data.facing;
+        let score = data.score;
+
+        if path_tree.len() % 100 == 0 {
+            println!("path_tree length: {}", path_tree.len());
+        }
+
+        'straight: {
+            if let Some(c) = grid.next_pos(current_pos, facing) {
                 match grid.at(c) {
-                    State::Wall => {}
+                    State::Wall => {
+                        path_tree.get(k).unwrap().borrow_mut().straight = LinkState::NoChild;
+                    }
                     state @ State::Empty | state @ State::Start | state @ State::End => {
-                        if let Some(best_score) = best_scores.get(&(c, dir)) {
-                            if *best_score < score {
-                                continue 'dir;
+                        if let Some(best_score) = best_scores.get(&(c, facing)) {
+                            if *best_score < score + 1 {
+                                path_tree.get(k).unwrap().borrow_mut().straight =
+                                    LinkState::NoChild;
+                                break 'straight;
                             }
                         }
-                        best_scores.insert((c, dir), score);
+                        best_scores.insert((c, facing), data.score + 1);
                         let new_data = PathData {
-                            score: score,
+                            score: data.score + 1,
                             pos: c,
-                            facing: dir,
+                            facing: facing,
                         };
                         let new_link = path_tree.insert(RefCell::new(Links::link_from(k)));
                         path_data.insert(new_link, new_data);
-                        let _ = path_tree
-                            .get(k)
-                            .unwrap()
-                            .borrow_mut()
-                            .straight
-                            .insert(new_link);
+                        path_tree.get(k).unwrap().borrow_mut().straight =
+                            LinkState::HasChild(new_link);
                         if matches!(state, State::End) {
                             completed.push(new_link);
                         } else {
@@ -235,6 +262,75 @@ fn paths_from(grid: &BasicGrid<State>, start: Coord) -> (Vec<Vec<Coord>>, usize)
                     }
                 }
             }
+        }
+        'right: {
+            let dir = facing.turn_right();
+            if let Some(c) = grid.next_pos(current_pos, dir) {
+                match grid.at(c) {
+                    State::Wall => {
+                        path_tree.get(k).unwrap().borrow_mut().right = LinkState::NoChild;
+                    }
+                    state @ State::Empty | state @ State::Start | state @ State::End => {
+                        if let Some(best_score) = best_scores.get(&(c, dir)) {
+                            if *best_score < score + 1001 {
+                                path_tree.get(k).unwrap().borrow_mut().right = LinkState::NoChild;
+                                break 'right;
+                            }
+                        }
+                        best_scores.insert((c, dir), score + 1001);
+                        let new_data = PathData {
+                            score: score + 1001,
+                            pos: c,
+                            facing: dir,
+                        };
+                        let new_link = path_tree.insert(RefCell::new(Links::link_from(k)));
+                        path_data.insert(new_link, new_data);
+                        path_tree.get(k).unwrap().borrow_mut().right =
+                            LinkState::HasChild(new_link);
+                        if matches!(state, State::End) {
+                            completed.push(new_link);
+                        } else {
+                            to_visit.push(new_link);
+                        }
+                    }
+                }
+            }
+        }
+        'left: {
+            let dir = facing.turn_left();
+            if let Some(c) = grid.next_pos(current_pos, dir) {
+                match grid.at(c) {
+                    State::Wall => {
+                        path_tree.get(k).unwrap().borrow_mut().left = LinkState::NoChild;
+                    }
+                    state @ State::Empty | state @ State::Start | state @ State::End => {
+                        if let Some(best_score) = best_scores.get(&(c, dir)) {
+                            if *best_score < score + 1001 {
+                                path_tree.get(k).unwrap().borrow_mut().left = LinkState::NoChild;
+                                break 'left;
+                            }
+                        }
+                        best_scores.insert((c, dir), score + 1001);
+                        let new_data = PathData {
+                            score: score + 1001,
+                            pos: c,
+                            facing: dir,
+                        };
+                        let new_link = path_tree.insert(RefCell::new(Links::link_from(k)));
+                        path_data.insert(new_link, new_data);
+                        path_tree.get(k).unwrap().borrow_mut().left = LinkState::HasChild(new_link);
+                        if matches!(state, State::End) {
+                            completed.push(new_link);
+                        } else {
+                            to_visit.push(new_link);
+                        }
+                    }
+                }
+            }
+        }
+        if can_drop(&path_tree.get(k).unwrap().borrow()) {
+            path_tree.remove(k);
+            println!("REMOVED");
         }
     }
     let end_coord = path_data.get(completed[0]).unwrap().pos;
@@ -258,8 +354,8 @@ fn best_score_from(grid: &BasicGrid<State>, start: Coord) -> Option<usize> {
 }
 
 fn part1() {
-    //let input = TEST;
-    let input = std::fs::read_to_string("input/d16.txt").unwrap();
+    let input = TEST;
+    //let input = std::fs::read_to_string("input/d16.txt").unwrap();
     let lines: Vec<&str> = input.lines().map(str::trim).collect();
     let grid: BasicGrid<State> = BasicGrid::new(&lines);
     let start_pos = grid
@@ -286,8 +382,8 @@ fn dump_tiles(grid: &BasicGrid<State>, tiles: &HashSet<Coord>) {
     }
 }
 fn part2() {
-    //let input = TEST1;
-    let input = std::fs::read_to_string("input/d16.txt").unwrap();
+    let input = TEST;
+    //let input = std::fs::read_to_string("input/d16.txt").unwrap();
     let lines: Vec<&str> = input.lines().map(str::trim).collect();
     let grid: BasicGrid<State> = BasicGrid::new(&lines);
     let start_pos = grid
