@@ -130,56 +130,25 @@ impl Partials {
 new_key_type! {
     struct LinksKey;
 }
+#[derive(Debug)]
 struct PathData {
     score: usize,
     pos: Coord,
     facing: Dir,
 }
 
-#[derive(Clone, Copy, Debug)]
-enum LinkState {
-    Unvisited,
-    HasChild(LinksKey),
-    NoChild,
-}
-struct Links {
-    straight: LinkState,
-    left: LinkState,
-    right: LinkState,
-    last: Option<LinksKey>,
-}
-
-impl Links {
-    fn root() -> Self {
-        Links {
-            straight: LinkState::Unvisited,
-            left: LinkState::Unvisited,
-            right: LinkState::Unvisited,
-            last: None,
-        }
-    }
-    fn link_from(k: LinksKey) -> Self {
-        Self {
-            straight: LinkState::Unvisited,
-            left: LinkState::Unvisited,
-            right: LinkState::Unvisited,
-            last: Some(k),
-        }
-    }
-}
-
 fn path_from(
-    path_tree: &SlotMap<LinksKey, RefCell<Links>>,
-    path_data: &SecondaryMap<LinksKey, PathData>,
+    path_tree: &SlotMap<LinksKey, PathData>,
+    parents: &SecondaryMap<LinksKey, LinksKey>,
     from: LinksKey,
 ) -> Vec<Coord> {
     let mut v = vec![];
     let mut l = from;
     loop {
-        v.push(path_data.get(l).unwrap().pos);
-        match path_tree.get(l).unwrap().borrow().last {
+        v.push(path_tree.get(l).unwrap().pos);
+        match parents.get(l) {
             Some(parent) => {
-                l = parent;
+                l = *parent;
             }
             None => {
                 break;
@@ -189,104 +158,60 @@ fn path_from(
     v
 }
 
-fn can_drop(node: &Links) -> bool {
-    if matches!(
-        (node.straight, node.left, node.right),
-        (LinkState::NoChild, LinkState::NoChild, LinkState::NoChild)
-    ) {
-        true
-    } else {
-        false
-    }
-}
-
 fn paths_from(grid: &BasicGrid<State>, start: Coord) -> (Vec<Vec<Coord>>, usize) {
-    let mut path_tree: SlotMap<LinksKey, RefCell<Links>> = SlotMap::with_key();
-    let root = path_tree.insert(RefCell::new(Links::root()));
-    let mut path_data = SecondaryMap::new();
-    path_data.insert(
-        root,
-        PathData {
-            score: 0,
-            pos: start,
-            facing: Dir::Right,
-        },
-    );
+    let mut path_tree: SlotMap<LinksKey, PathData> = SlotMap::with_key();
+    let root = path_tree.insert(PathData {
+        score: 0,
+        pos: start,
+        facing: Dir::Right,
+    });
+    let mut children: SecondaryMap<LinksKey, Vec<LinksKey>> = SecondaryMap::new();
+    let mut parents: SecondaryMap<LinksKey, LinksKey> = SecondaryMap::new();
 
     let mut to_visit: Vec<LinksKey> = vec![root];
     let mut completed: Vec<LinksKey> = Default::default();
     let mut best_scores: HashMap<(Coord, Dir), usize> = Default::default();
+    let mut cache_hits: usize = 0;
+    let mut max_stack_size: usize = 0;
 
     while let Some(k) = to_visit.pop() {
-        let data = path_data.get(k).unwrap();
+        let data = path_tree.get(k).unwrap();
         let current_pos = data.pos;
-        if current_pos == Coord::new(13, 3) {
-            println!("TTT");
-        }
         let facing = data.facing;
         let score = data.score;
-
-        if path_tree.len() % 100 == 0 {
+        max_stack_size = max_stack_size.max(to_visit.len());
+        if path_tree.len() % 10000 == 0 {
             println!("path_tree length: {}", path_tree.len());
+            println!("Max stack size: {}", max_stack_size);
         }
-
-        'straight: {
-            if let Some(c) = grid.next_pos(current_pos, facing) {
+        for (dir, score) in [
+            (facing, score + 1),
+            (facing.turn_left(), score + 1001),
+            (facing.turn_right(), score + 1001),
+        ] {
+            if let Some(c) = grid.next_pos(current_pos, dir) {
                 match grid.at(c) {
-                    State::Wall => {
-                        path_tree.get(k).unwrap().borrow_mut().straight = LinkState::NoChild;
-                    }
+                    State::Wall => {}
                     state @ State::Empty | state @ State::Start | state @ State::End => {
                         if let Some(best_score) = best_scores.get(&(c, facing)) {
-                            if *best_score < score + 1 {
-                                path_tree.get(k).unwrap().borrow_mut().straight =
-                                    LinkState::NoChild;
-                                break 'straight;
+                            if *best_score < score {
+                                cache_hits += 1;
+                                continue;
                             }
                         }
-                        best_scores.insert((c, facing), data.score + 1);
+                        best_scores.insert((c, facing), score);
                         let new_data = PathData {
-                            score: data.score + 1,
-                            pos: c,
-                            facing: facing,
-                        };
-                        let new_link = path_tree.insert(RefCell::new(Links::link_from(k)));
-                        path_data.insert(new_link, new_data);
-                        path_tree.get(k).unwrap().borrow_mut().straight =
-                            LinkState::HasChild(new_link);
-                        if matches!(state, State::End) {
-                            completed.push(new_link);
-                        } else {
-                            to_visit.push(new_link);
-                        }
-                    }
-                }
-            }
-        }
-        'right: {
-            let dir = facing.turn_right();
-            if let Some(c) = grid.next_pos(current_pos, dir) {
-                match grid.at(c) {
-                    State::Wall => {
-                        path_tree.get(k).unwrap().borrow_mut().right = LinkState::NoChild;
-                    }
-                    state @ State::Empty | state @ State::Start | state @ State::End => {
-                        if let Some(best_score) = best_scores.get(&(c, dir)) {
-                            if *best_score < score + 1001 {
-                                path_tree.get(k).unwrap().borrow_mut().right = LinkState::NoChild;
-                                break 'right;
-                            }
-                        }
-                        best_scores.insert((c, dir), score + 1001);
-                        let new_data = PathData {
-                            score: score + 1001,
+                            score: score,
                             pos: c,
                             facing: dir,
                         };
-                        let new_link = path_tree.insert(RefCell::new(Links::link_from(k)));
-                        path_data.insert(new_link, new_data);
-                        path_tree.get(k).unwrap().borrow_mut().right =
-                            LinkState::HasChild(new_link);
+                        let new_link = path_tree.insert(new_data);
+                        children
+                            .entry(k)
+                            .unwrap()
+                            .or_insert(Vec::with_capacity(3))
+                            .push(new_link);
+                        parents.insert(new_link, k);
                         if matches!(state, State::End) {
                             completed.push(new_link);
                         } else {
@@ -296,44 +221,38 @@ fn paths_from(grid: &BasicGrid<State>, start: Coord) -> (Vec<Vec<Coord>>, usize)
                 }
             }
         }
-        'left: {
-            let dir = facing.turn_left();
-            if let Some(c) = grid.next_pos(current_pos, dir) {
-                match grid.at(c) {
-                    State::Wall => {
-                        path_tree.get(k).unwrap().borrow_mut().left = LinkState::NoChild;
-                    }
-                    state @ State::Empty | state @ State::Start | state @ State::End => {
-                        if let Some(best_score) = best_scores.get(&(c, dir)) {
-                            if *best_score < score + 1001 {
-                                path_tree.get(k).unwrap().borrow_mut().left = LinkState::NoChild;
-                                break 'left;
-                            }
-                        }
-                        best_scores.insert((c, dir), score + 1001);
-                        let new_data = PathData {
-                            score: score + 1001,
-                            pos: c,
-                            facing: dir,
-                        };
-                        let new_link = path_tree.insert(RefCell::new(Links::link_from(k)));
-                        path_data.insert(new_link, new_data);
-                        path_tree.get(k).unwrap().borrow_mut().left = LinkState::HasChild(new_link);
-                        if matches!(state, State::End) {
-                            completed.push(new_link);
-                        } else {
-                            to_visit.push(new_link);
-                        }
-                    }
-                }
-            }
-        }
-        if can_drop(&path_tree.get(k).unwrap().borrow()) {
+        let mut maybe_remove: Option<LinksKey> = Some(k);
+        while maybe_remove.is_some()
+            && children
+                .get(maybe_remove.unwrap())
+                .is_none_or(|v| v.is_empty())
+        {
+            let k = maybe_remove.unwrap();
+            let parent = parents.get(k).copied();
             path_tree.remove(k);
-            println!("REMOVED");
+            if let Some(p) = parent {
+                children.entry(p).map(|e| {
+                    e.and_modify(|v| {
+                        if let Some(i) = v
+                            .iter()
+                            .enumerate()
+                            .find(|(i, &ck)| ck == k)
+                            .map(|(i, &ck)| i)
+                        {
+                            v.remove(i);
+                        }
+                    });
+                });
+            }
+            parents.remove(k);
+            maybe_remove = parent;
         }
     }
-    let end_coord = path_data.get(completed[0]).unwrap().pos;
+    println!("Final tree size: {}\tHits: {}", path_tree.len(), cache_hits);
+    println!("Max stack size: {}", max_stack_size);
+
+    assert!(completed.len() > 0);
+    let end_coord = path_tree.get(completed[0]).unwrap().pos;
     let best_score = best_scores
         .iter()
         .filter(|((coord, dir), v)| *coord == end_coord)
@@ -342,8 +261,8 @@ fn paths_from(grid: &BasicGrid<State>, start: Coord) -> (Vec<Vec<Coord>>, usize)
         .unwrap();
     let paths: Vec<Vec<Coord>> = completed
         .into_iter()
-        .filter(|l| path_data.get(*l).unwrap().score == best_score)
-        .map(|l| path_from(&path_tree, &path_data, l))
+        .filter(|l| path_tree.get(*l).unwrap().score == best_score)
+        .map(|l| path_from(&path_tree, &parents, l))
         .collect();
     (paths, best_score)
 }
@@ -354,8 +273,8 @@ fn best_score_from(grid: &BasicGrid<State>, start: Coord) -> Option<usize> {
 }
 
 fn part1() {
-    let input = TEST;
-    //let input = std::fs::read_to_string("input/d16.txt").unwrap();
+    //let input = TEST;
+    let input = std::fs::read_to_string("input/d16.txt").unwrap();
     let lines: Vec<&str> = input.lines().map(str::trim).collect();
     let grid: BasicGrid<State> = BasicGrid::new(&lines);
     let start_pos = grid
@@ -382,8 +301,8 @@ fn dump_tiles(grid: &BasicGrid<State>, tiles: &HashSet<Coord>) {
     }
 }
 fn part2() {
-    let input = TEST;
-    //let input = std::fs::read_to_string("input/d16.txt").unwrap();
+    //let input = TEST1;
+    let input = std::fs::read_to_string("input/d16.txt").unwrap();
     let lines: Vec<&str> = input.lines().map(str::trim).collect();
     let grid: BasicGrid<State> = BasicGrid::new(&lines);
     let start_pos = grid
@@ -435,3 +354,19 @@ static TEST1: &str = r#"#################
 #.#.#.#########.#
 #S#.............#
 #################"#;
+
+static TEST2: &str = r#"###############
+#.......#....E#
+#.#.###.#.###.#
+#.....#.#...#.#
+#.###.#####.#.#
+#.#.#.......#.#
+#.#.#####.###.#
+#...........#.#
+###.#.#####.#.#
+#...#.....#.#.#
+#.#.#.###.#.#.#
+#.....#...#.#.#
+#####.#.#.#.#.#
+#S..#.....#...#
+###############"#;
