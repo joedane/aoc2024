@@ -204,31 +204,38 @@ fn part1(mut ms: MachineState) {
     println!("{}", v.into_iter().join(","));
 }
 
-fn part2(mut ms: MachineState) {
-    let original = ms.clone();
-    let mut a: usize = 0;
-    'op: for op_idx in (0..ms.source.len()).rev() {
-        for try_a in 0..8 {
-            let mut ms = original.clone();
-            ms.reg_a = (a << 3) | try_a;
-            let v = run_to_halt(&mut ms);
-            let cc = *original.source.get(op_idx).unwrap();
-            if v.first() == original.source.get(op_idx) {
-                a = (a << 3) | try_a;
-                continue 'op;
+fn try_this(ms: MachineState, a: usize, idx: usize) -> Option<usize> {
+    for try_a in 0..8 {
+        let mut try_ms = ms.clone();
+        try_ms.reg_a = (a << 3) | try_a;
+        let v = run_to_halt(&mut try_ms);
+        if v == ms.source[idx..] {
+            if idx == 0 {
+                return Some((a << 3) | try_a);
+            } else {
+                if let Some(a) = try_this(ms.clone(), (a << 3) | try_a, idx - 1) {
+                    return Some(a);
+                }
             }
         }
     }
-    println!("{}", a);
+    return None;
+}
+
+fn part2(mut ms: MachineState) {
+    let idx = ms.source.len() - 1;
+    if let Some(a) = try_this(ms, 0, idx) {
+        println!("{}", a);
+    } else {
+        println!("None");
+    }
 }
 
 fn main() {
-    let input = TEST1;
-    //let input = std::fs::read_to_string("input/d17.txt").unwrap();
+    //let input = TEST1;
+    let input = std::fs::read_to_string("input/d17.txt").unwrap();
     let mut ms: MachineState = input.parse().unwrap();
-    ms.reg_a = 117440;
-    println!("{:?}", run_to_halt(&mut ms));
-    //    part2(ms);
+    part2(ms);
 }
 
 static TEST: &str = r#"Register A: 729
