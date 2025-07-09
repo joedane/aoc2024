@@ -129,21 +129,8 @@ fn dump(scores: &HashMap<Pos, Cost>, objs: &HashSet<Pos>) {
     println!("");
 }
 
-fn main() {
-    //let input = TEST;
-    let input = std::fs::read_to_string("input/d18.txt").unwrap();
-    let objs: HashSet<Pos> = input
-        .lines()
-        .take(NUM_OBJS)
-        .map(|s| {
-            let i = s.find(',').unwrap();
-            Pos {
-                x: s[0..i].parse().unwrap(),
-                y: s[i + 1..].parse().unwrap(),
-            }
-        })
-        .collect();
-
+// A* algorithm
+fn shortest_path(objs: &HashSet<Pos>) -> Option<Cost> {
     let mut openSet: BinaryHeap<PosItem> = Default::default();
     let h = |p: Pos| Cost(((WIDTH - p.x) + (HEIGHT - p.y)) as u32);
     openSet.push(PosItem::new(0, 0, Cost(0), h(Pos::new(0, 0))));
@@ -157,8 +144,7 @@ fn main() {
     while let Some(current) = openSet.pop() {
         //       dump(&gScore, &objs);
         if current.pos == GOAL {
-            println!("total cost: {:?}", current.cost);
-            return;
+            return Some(current.cost);
         }
         for n in neighbors(current.pos, &objs) {
             let tentative_g = if let Some(g_score) = gScore.get(&current.pos) {
@@ -177,7 +163,60 @@ fn main() {
             }
         }
     }
-    println!("failed");
+    return None;
+}
+
+fn part1() {
+    //let input = TEST;
+    let input = std::fs::read_to_string("input/d18.txt").unwrap();
+    let objs: HashSet<Pos> = input
+        .lines()
+        .take(NUM_OBJS)
+        .map(|s| {
+            let i = s.find(',').unwrap();
+            Pos {
+                x: s[0..i].parse().unwrap(),
+                y: s[i + 1..].parse().unwrap(),
+            }
+        })
+        .collect();
+
+    match shortest_path(&objs) {
+        Some(cost) => println!("Cost: {}", cost.0),
+        None => println!("No path"),
+    }
+}
+
+fn part2() {
+    fn parse_pos(s: &str) -> Pos {
+        let i = s.find(',').unwrap();
+        Pos {
+            x: s[0..i].parse().unwrap(),
+            y: s[i + 1..].parse().unwrap(),
+        }
+    }
+    //let input = TEST;
+    let input = std::fs::read_to_string("input/d18.txt").unwrap();
+    let mut input_iter = input.lines();
+    let mut objs: HashSet<Pos> = input_iter.by_ref().take(NUM_OBJS).map(parse_pos).collect();
+    let mut i = 1024;
+    let p = loop {
+        let next_obj = input_iter.next().map(parse_pos).unwrap();
+        i += 1;
+        println!("{i}");
+        objs.insert(next_obj);
+        match shortest_path(&objs) {
+            Some(_) => continue,
+            None => {
+                println!("No path at pos: {:?}", next_obj);
+                break;
+            }
+        }
+    };
+}
+
+fn main() {
+    part2();
 }
 
 static TEST: &str = r#"5,4
