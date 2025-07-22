@@ -1,5 +1,27 @@
 use std::collections::HashSet;
 
+fn try_match_2<'a>(word: &'a str, vocab: &Vec<&str>, memo: &mut HashSet<&'a str>) -> bool {
+    if word.is_empty() {
+        return true;
+    } else {
+        if memo.contains(word) {
+            return true;
+        } else {
+            if vocab
+                .iter()
+                .filter(|v| word.starts_with(*v))
+                .any(|v| try_match_2(&word[v.len()..], vocab, memo))
+            {
+                memo.insert(word);
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+}
+
+/*
 fn try_match(word: &str, vocab: &Vec<&str>, memo: &mut HashSet<&str>) -> bool {
     println!("try_match on {}", word);
     let mut i = 0;
@@ -36,9 +58,11 @@ fn try_match(word: &str, vocab: &Vec<&str>, memo: &mut HashSet<&str>) -> bool {
     }
     return true;
 }
+    */
+
 fn main() {
-    //    let input = TEST;
-    let input = std::fs::read_to_string("input/d19.txt").unwrap();
+    let input = TEST;
+    //let input = std::fs::read_to_string("input/d19.txt").unwrap();
     let mut lines = input.lines();
     if let Some(l) = lines.next() {
         let mut v: Vec<&str> = l.split(',').map(str::trim).collect();
@@ -48,7 +72,11 @@ fn main() {
         println!("vocab: {:?}", v);
         println!("words: {:?}", words);
 
-        let r: usize = words.into_iter().filter(|&w| try_match(w, &v)).count();
+        let mut memo: HashSet<&str> = Default::default();
+        let r: usize = words
+            .into_iter()
+            .filter(|&w| try_match_2(w, &v, &mut memo))
+            .count();
 
         println!("{r}");
     }
