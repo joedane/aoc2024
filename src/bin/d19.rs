@@ -1,68 +1,47 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
-fn try_match_2<'a>(word: &'a str, vocab: &Vec<&str>, memo: &mut HashSet<&'a str>) -> bool {
-    if word.is_empty() {
+fn try_match<'a>(word: &'a str, vocab: &Vec<&str>, memo: &mut HashMap<&'a str, bool>) -> bool {
+    println!("try match {word}");
+    if word.len() == 0 {
         return true;
+    } else if let Some(s) = memo.get(word) {
+        println!("found {word} in cache ({s})");
+        return *s;
     } else {
-        if memo.contains(word) {
+        if vocab.iter().filter(|v| word.starts_with(*v)).any(|v| {
+            println!("trying prefix {v}");
+            try_match(&word[v.len()..], vocab, memo)
+        }) {
+            memo.insert(word, true);
+            println!("matched {word}");
             return true;
         } else {
-            if vocab
-                .iter()
-                .filter(|v| word.starts_with(*v))
-                .any(|v| try_match_2(&word[v.len()..], vocab, memo))
-            {
-                memo.insert(word);
-                return true;
-            } else {
-                return false;
-            }
-        }
-    }
-}
-
-/*
-fn try_match(word: &str, vocab: &Vec<&str>, memo: &mut HashSet<&str>) -> bool {
-    println!("try_match on {}", word);
-    let mut i = 0;
-    let mut stack: Vec<(usize, usize)> = vec![];
-    let mut v = 0;
-
-    'i: while i < word.len() {
-        while v < vocab.len() {
-            println!("testing {} against {}", &word[i..], vocab[v]);
-            if word[i..].starts_with(vocab[v]) {
-                stack.push((i, v));
-                i += vocab[v].len();
-                v = 0;
-                continue 'i;
-            } else {
-                v += 1;
-            }
-        }
-        if let Some((saved_i, saved_v)) = stack.pop() {
-            if saved_v < vocab.len() - 1 {
-                v = saved_v + 1;
-                i = saved_i;
-                continue 'i;
-            } else if saved_i < word.len() - 1 {
-                i = saved_i + 1;
-                v = 0;
-                continue 'i;
-            } else {
-                return false;
-            }
-        } else {
+            memo.insert(word, false);
             return false;
         }
     }
-    return true;
 }
-    */
 
-fn main() {
-    let input = TEST;
-    //let input = std::fs::read_to_string("input/d19.txt").unwrap();
+fn match_all<'a>(word: &'a str, vocab: &Vec<&str>, memo: &mut HashMap<&'a str, usize>) -> usize {
+    println!("try match {word}");
+    if word.len() == 0 {
+        return 1;
+    } else if let Some(s) = memo.get(word) {
+        println!("found {word} in cache ({s})");
+        return *s;
+    } else {
+        let mut matches = 0;
+        for v in vocab.iter().filter(|v| word.starts_with(*v)) {
+            matches += match_all(&word[v.len()..], vocab, memo);
+        }
+        memo.insert(word, matches);
+        return matches;
+    }
+}
+
+fn part1() {
+    //let input = TEST;
+    let input = std::fs::read_to_string("input/d19.txt").unwrap();
     let mut lines = input.lines();
     if let Some(l) = lines.next() {
         let mut v: Vec<&str> = l.split(',').map(str::trim).collect();
@@ -72,14 +51,42 @@ fn main() {
         println!("vocab: {:?}", v);
         println!("words: {:?}", words);
 
-        let mut memo: HashSet<&str> = Default::default();
+        let mut memo: HashMap<&str, bool> = Default::default();
         let r: usize = words
             .into_iter()
-            .filter(|&w| try_match_2(w, &v, &mut memo))
+            .filter(|&w| try_match(w, &v, &mut memo))
             .count();
 
         println!("{r}");
     }
+}
+
+fn part2() {
+    //let input = TEST;
+    let input = std::fs::read_to_string("input/d19.txt").unwrap();
+    let mut lines = input.lines();
+    if let Some(l) = lines.next() {
+        let mut v: Vec<&str> = l.split(',').map(str::trim).collect();
+        let _ = lines.next();
+        let words: Vec<&str> = lines.map(str::trim).collect();
+        v.sort_by(|v1, v2| v2.len().cmp(&v1.len()));
+        println!("vocab: {:?}", v);
+        println!("words: {:?}", words);
+
+        let mut memo: HashMap<&str, usize> = Default::default();
+        let r: HashMap<&str, usize> = words
+            .into_iter()
+            .map(|w| (w, match_all(w, &v, &mut memo)))
+            .collect();
+        for w in &r {
+            println!("word '{}' can be made {} ways", w.0, w.1);
+        }
+        println!("total: {}", r.values().sum::<usize>());
+    }
+}
+
+fn main() {
+    part2();
 }
 
 static TEST: &str = "r, wr, b, g, bwu, rb, gb, br
