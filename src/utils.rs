@@ -243,6 +243,12 @@ where
     }
 }
 
+impl<T> BasicGrid<T> {
+    pub fn count_with<F: for<'a> FnMut(&'a &T) -> bool>(&self, pred: F) -> usize {
+        self.data.iter().filter(pred).count()
+    }
+}
+
 impl<T> BasicGrid<T>
 where
     T: Copy,
