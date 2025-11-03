@@ -107,7 +107,7 @@ fn trace_path(grid: &BasicGrid<GridPoint>) -> (Vec<Coord>, HashMap<Coord, usize>
     (r, steps)
 }
 
-fn possible_jumps(grid: &BasicGrid<GridPoint>, from: Coord, dist: usize) -> Vec<Coord> {
+fn possible_jumps<T>(grid: &BasicGrid<T>, from: Coord, dist: usize) -> Vec<Coord> {
     let mut targets: HashSet<Coord> = Default::default();
     let mut to_visit: Vec<(Coord, usize)> = Default::default();
     to_visit.push((from, dist));
@@ -197,3 +197,17 @@ static TEST: &str = "###############
 #.#.#.#.#.#.###
 #...#...#...###
 ###############";
+
+#[cfg(test)]
+
+mod test {
+
+    use super::*;
+
+    #[test]
+    fn test_jumps() {
+        let g: BasicGrid<u16> = BasicGrid::new_default(15, 15);
+        let v = super::possible_jumps(&g, Coord::new(1, 1), 3);
+        println!("{:?}", v);
+    }
+}
