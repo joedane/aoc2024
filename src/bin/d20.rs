@@ -193,33 +193,30 @@ fn process_part2(data: String, dist: usize, min_savings: usize) {
     let mut save_hash: HashMap<usize, usize> = Default::default();
 
     println!("path is {} long", path.len());
-    for p in &path {
-        let this_step = *steps.get(p).unwrap();
-        for pos in possible_jumps(&grid, *p, dist) {
-            if let Some(&step) = steps.get(&pos) {
-                if step > this_step + manhattan_len(p.clone(), pos) {
-                    let savings = step - this_step - manhattan_len(p.clone(), pos);
-                    if savings >= min_savings {
-                        save_hash
-                            .entry(savings)
-                            .and_modify(|c| *c += 1)
-                            .or_insert(1);
-
-                        println!(
-                            "jumping from pos {:?} to {:?} will save {} steps",
-                            p, pos, savings
-                        );
-                    }
-                }
+    for (i, start_step) in path[..path.len() - 1].iter().enumerate() {
+        for j in (i + 1)..(path.len()) {
+            let probe = &path[j];
+            let savings = j - i - manhattan_len(*start_step, *probe);
+            if savings >= min_savings {
+                save_hash
+                    .entry(savings)
+                    .and_modify(|c| *c += 1)
+                    .or_insert(1);
+                /*
+                println!(
+                    "jumping from pos {:?} to {:?} will save {} steps",
+                    start_step, probe, savings
+                );
+                */
             }
         }
     }
-
     println!("{:?}", save_hash.len());
     println!("{:?}", save_hash);
-    for s in save_hash.into_iter().sorted_by(|s1, s2| s1.0.cmp(&s2.0)) {
+    for s in save_hash.iter().sorted_by(|s1, s2| s1.0.cmp(&s2.0)) {
         println!("There are {:>2} cheats that save {} picoseconds.", s.1, s.0);
     }
+    println!("total savings: {}", save_hash.values().sum::<usize>());
 }
 
 fn part1(data: String) {
@@ -227,12 +224,12 @@ fn part1(data: String) {
 }
 
 fn part2(data: String) {
-    process_part2(data, 20, 50);
+    process_part2(data, 20, 100);
 }
 
 fn main() {
-    let data = TEST;
-    //let data = std::fs::read_to_string("input/d20.txt").unwrap();
+    //let data = TEST;
+    let data = std::fs::read_to_string("input/d20.txt").unwrap();
     part2(data.to_string());
 }
 
