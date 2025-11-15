@@ -116,9 +116,6 @@ fn possible_jumps<T>(grid: &BasicGrid<T>, from: Coord, dist: usize) -> Vec<Coord
     while let Some((c, dist)) = to_visit.pop() {
         targets.insert(c);
 
-        if c.row == 3 && c.col == 1 {
-            println!("here we are");
-        }
         if dist > 0 {
             for d in [Dir::Up, Dir::Left, Dir::Down, Dir::Right] {
                 if let Some(pos) = grid.next_pos(c, d) {
@@ -142,9 +139,11 @@ fn process_part1(data: String, dist: usize, min_savings: usize) {
 
     let (path, steps) = trace_path(&grid);
     let path_len = path.len();
+    /*
     for p in &path {
         println!("{:?} => {}", p, steps.get(p).unwrap());
     }
+    */
     let mut save_hash: HashMap<usize, usize> = Default::default();
 
     for p in &path {
@@ -158,11 +157,12 @@ fn process_part1(data: String, dist: usize, min_savings: usize) {
                             .entry(savings)
                             .and_modify(|c| *c += 1)
                             .or_insert(1);
-
+                        /*
                         println!(
                             "jumping from pos {:?} to {:?} will save {} steps",
                             p, pos, savings
                         );
+                        */
                     }
                 }
             }
@@ -187,15 +187,20 @@ fn process_part2(data: String, dist: usize, min_savings: usize) {
 
     let (path, steps) = trace_path(&grid);
     let path_len = path.len();
+    /*
     for p in &path {
         println!("{:?} => {}", p, steps.get(p).unwrap());
     }
+    */
     let mut save_hash: HashMap<usize, usize> = Default::default();
 
     println!("path is {} long", path.len());
     for (i, start_step) in path[..path.len() - 1].iter().enumerate() {
         for j in (i + 1)..(path.len()) {
             let probe = &path[j];
+            if manhattan_len(*start_step, *probe) > dist {
+                continue;
+            }
             let savings = j - i - manhattan_len(*start_step, *probe);
             if savings >= min_savings {
                 save_hash
